@@ -1337,6 +1337,46 @@ figma.ui.onmessage = async (msg) => {
       break;
     }
 
+    case "register-candidate-mapping": {
+      try {
+        var existing = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        existing[msg.candidateName] = {
+          componentKey: msg.componentKey,
+          componentName: msg.componentName,
+          variantName: msg.variantName || null,
+        };
+        await figma.clientStorage.setAsync("candidateMappings", existing);
+        figma.ui.postMessage({
+          type: "mapping-set",
+          candidateName: msg.candidateName,
+          componentName: msg.componentName,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "mapping-set",
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "list-candidate-mappings": {
+      try {
+        var existingMappings = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        figma.ui.postMessage({
+          type: "candidate-mappings-list",
+          mappings: existingMappings,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "candidate-mappings-list",
+          mappings: {},
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
     case "build": {
       // Run the build pipeline. Streams `progress` messages while it runs;
       // emits `build-complete` (success) or `build-result` (error) at the end.

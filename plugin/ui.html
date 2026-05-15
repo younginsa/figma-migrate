@@ -728,6 +728,25 @@
       color: var(--success);
       font-weight: 600;
     }
+    .candidates-card__mapping-chip {
+      font: 10px var(--font-mono);
+      color: var(--primary);
+      padding: 2px 6px;
+      background: rgba(19, 121, 243, 0.1);
+      border-radius: 3px;
+    }
+    .candidates-card__ds-btn {
+      margin-left: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid var(--primary);
+      background: transparent;
+      color: var(--primary);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .candidates-card__ds-btn:hover { background: rgba(19, 121, 243, 0.06); }
 
     /* ==========================================================
        Mapping sections (Screen 03 — System states / Modals / Toasts).
@@ -3775,6 +3794,8 @@
           if (!screen03) return;
           var list = screen03.querySelector("#candidatesList");
           if (!list) return;
+
+          // Update the candidates count span (existing from A2 fix)
           var countSpan = screen03.querySelector("#candidatesCount");
           if (countSpan) {
             var n = (candidates && candidates.length) || 0;
@@ -3784,6 +3805,7 @@
               countSpan.textContent = n + " structure" + (n === 1 ? "" : "s") + " not in the DS";
             }
           }
+
           list.innerHTML = "";
           if (!candidates || candidates.length === 0) {
             var empty = document.createElement("li");
@@ -3794,26 +3816,47 @@
             list.appendChild(empty);
             return;
           }
+
           candidates.forEach(function (cand) {
             var li = document.createElement("li");
+            li.setAttribute("data-candidate", cand.name);
+
             var nameSpan = document.createElement("span");
             nameSpan.className = "candidates-card__list-name";
             nameSpan.textContent = cand.name;
             li.appendChild(nameSpan);
-            // Pick element (HTML preview capture) — existing flow
+
+            var mappingChip = document.createElement("span");
+            mappingChip.className = "candidates-card__mapping-chip";
+            mappingChip.hidden = true;
+            li.appendChild(mappingChip);
+
             var pickHtmlBtn = document.createElement("button");
             pickHtmlBtn.className = "candidates-card__upload-btn";
             pickHtmlBtn.type = "button";
             pickHtmlBtn.textContent = "Pick element";
             li.appendChild(pickHtmlBtn);
+
+            var pickDsBtn = document.createElement("button");
+            pickDsBtn.className = "candidates-card__ds-btn";
+            pickDsBtn.type = "button";
+            pickDsBtn.textContent = "Pick DS component";
+            pickDsBtn.addEventListener("click", function () {
+              openScreenM(cand.name, "candidate");
+            });
+            li.appendChild(pickDsBtn);
+
             var status = document.createElement("span");
             status.className = "candidates-card__upload-status";
             status.hidden = true;
             status.textContent = "✓";
             li.appendChild(status);
-            // Pick DS component button is added in Task D2 — skip for now.
+
             list.appendChild(li);
           });
+
+          // Repopulate mapping chips from any persisted state
+          parent.postMessage({ pluginMessage: { type: "list-candidate-mappings" } }, "*");
         }
 
         // Walk Screen 03's mapping rows and collect the user's choices,
@@ -4014,6 +4057,49 @@
             if (msg.error) {
               console.warn("ds-components-list error:", msg.error);
             }
+            return;
+          }
+          if (msg.type === "mapping-set") {
+            if (msg.error) {
+              console.error("Failed to set mapping:", msg.error);
+              return;
+            }
+            // Update the row's chip + DS button text + status check
+            var s03 = document.querySelectorAll(".strip__cell")[2];
+            if (s03) {
+              var row = s03.querySelector('[data-candidate="' + msg.candidateName + '"]');
+              if (row) {
+                var chip = row.querySelector(".candidates-card__mapping-chip");
+                if (chip) {
+                  chip.textContent = "→ " + msg.componentName;
+                  chip.hidden = false;
+                }
+                var dsBtn = row.querySelector(".candidates-card__ds-btn");
+                if (dsBtn) dsBtn.textContent = "Change";
+                var status = row.querySelector(".candidates-card__upload-status");
+                if (status) status.hidden = false;
+              }
+            }
+            goBack(); // return from Screen M to Screen 03
+            return;
+          }
+          if (msg.type === "candidate-mappings-list") {
+            var s03b = document.querySelectorAll(".strip__cell")[2];
+            if (!s03b) return;
+            var mappings = msg.mappings || {};
+            Object.keys(mappings).forEach(function (name) {
+              var row = s03b.querySelector('[data-candidate="' + name + '"]');
+              if (!row) return;
+              var chip = row.querySelector(".candidates-card__mapping-chip");
+              if (chip) {
+                chip.textContent = "→ " + mappings[name].componentName;
+                chip.hidden = false;
+              }
+              var dsBtn = row.querySelector(".candidates-card__ds-btn");
+              if (dsBtn) dsBtn.textContent = "Change";
+              var status = row.querySelector(".candidates-card__upload-status");
+              if (status) status.hidden = false;
+            });
             return;
           }
           console.log("From plugin:", msg);
