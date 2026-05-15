@@ -1363,6 +1363,52 @@
     .coverage__row:has(.pill--auto)::after { display: none; }
     .coverage__row:has(.pill--auto) { cursor: default; }
     .coverage__row:has(.pill--auto):hover { background: transparent; border-color: var(--border-subtle); }
+
+    /* ---- Screen M (Pick DS component) ---- */
+    .library-search {
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      font: 12px var(--font-base);
+      background: var(--bg-panel);
+      color: var(--text-primary);
+    }
+    .library-components {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .library-components__item {
+      padding: 8px 10px;
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-panel);
+    }
+    .library-components__item:hover { background: var(--bg-row-hover); }
+    .library-components__item.is-selected {
+      border-color: var(--primary);
+      outline: 1px solid var(--primary);
+    }
+    .library-components__name { font-weight: 500; color: var(--text-primary); }
+    .library-components__variants {
+      font: 10px var(--font-mono);
+      color: var(--text-secondary);
+    }
+    .library-list__empty {
+      margin: 0;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
@@ -2341,6 +2387,30 @@
         </p>
       </div>
 
+      <!-- ============================================================
+           Screen M (12th cell) — Pick DS component for candidate
+           ============================================================ -->
+      <div class="strip__cell" id="screenM">
+        <div class="panel">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h2 class="panel__title" id="screenMTitle">Pick DS component</h2>
+          </div>
+          <div class="panel__body">
+            <input type="text" class="library-search" id="libraryComponentSearch" placeholder="Search components…">
+            <div class="library-components" id="libraryComponentsList">
+              <p class="library-list__empty">Loading components…</p>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary" id="screenMCancel">Cancel</button>
+            <button class="btn btn--primary btn--lg" id="screenMMatch" disabled>Match this component</button>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <script>
@@ -2960,6 +3030,116 @@
           }
         }
         wireFooterButtons();
+
+        // ---- Screen M (Pick DS component for candidate) ----
+        var screenMIdx = 11; // 12th .strip__cell (zero-indexed)
+        var screenMSelectedComponent = null;
+        var screenMCurrentCandidate = null;
+        var screenMReturnTarget = null; // 'candidate' (default) | 'manual-match' (set by Phase E)
+        var screenMComponentsCache = [];
+
+        function openScreenM(candidateName, returnTarget) {
+          screenMCurrentCandidate = candidateName || null;
+          screenMReturnTarget = returnTarget || "candidate";
+          screenMSelectedComponent = null;
+          var matchBtn = document.getElementById("screenMMatch");
+          if (matchBtn) matchBtn.disabled = true;
+          var title = document.getElementById("screenMTitle");
+          if (title) {
+            title.textContent = candidateName
+              ? "Pick DS component for: " + candidateName
+              : "Pick DS component";
+          }
+          var search = document.getElementById("libraryComponentSearch");
+          if (search) search.value = "";
+          parent.postMessage({ pluginMessage: { type: "list-ds-components" } }, "*");
+          navigateTo(screenMIdx);
+        }
+
+        function renderLibraryComponents(components, filter) {
+          var list = document.getElementById("libraryComponentsList");
+          if (!list) return;
+          list.innerHTML = "";
+          var f = (filter || "").toLowerCase().trim();
+          var visible = components.filter(function (c) {
+            if (!f) return true;
+            if ((c.name || "").toLowerCase().indexOf(f) !== -1) return true;
+            if ((c.variants || []).some(function (v) {
+              return (v || "").toLowerCase().indexOf(f) !== -1;
+            })) return true;
+            return false;
+          });
+          if (visible.length === 0) {
+            var empty = document.createElement("p");
+            empty.className = "library-list__empty";
+            empty.textContent = f
+              ? "No components match \"" + f + "\"."
+              : "No components in the Design system page yet.";
+            list.appendChild(empty);
+            return;
+          }
+          visible.forEach(function (c) {
+            var item = document.createElement("div");
+            item.className = "library-components__item";
+            var name = document.createElement("span");
+            name.className = "library-components__name";
+            name.textContent = c.name;
+            item.appendChild(name);
+            if (c.variants && c.variants.length) {
+              var v = document.createElement("span");
+              v.className = "library-components__variants";
+              v.textContent = c.variants.length + " variant" + (c.variants.length === 1 ? "" : "s");
+              item.appendChild(v);
+            }
+            item.addEventListener("click", function () {
+              var allItems = list.querySelectorAll(".library-components__item");
+              for (var i = 0; i < allItems.length; i++) allItems[i].classList.remove("is-selected");
+              item.classList.add("is-selected");
+              screenMSelectedComponent = { componentKey: c.key, componentName: c.name };
+              var matchBtn = document.getElementById("screenMMatch");
+              if (matchBtn) matchBtn.disabled = false;
+            });
+            list.appendChild(item);
+          });
+        }
+
+        var libSearchEl = document.getElementById("libraryComponentSearch");
+        if (libSearchEl) {
+          libSearchEl.addEventListener("input", function () {
+            renderLibraryComponents(screenMComponentsCache, libSearchEl.value);
+          });
+        }
+
+        var screenMCancel = document.getElementById("screenMCancel");
+        if (screenMCancel) screenMCancel.addEventListener("click", goBack);
+
+        var screenMMatch = document.getElementById("screenMMatch");
+        if (screenMMatch) {
+          screenMMatch.addEventListener("click", function () {
+            if (!screenMSelectedComponent) return;
+            if (screenMReturnTarget === "manual-match") {
+              // Phase E flow — update Screen N's DS field via the global callback.
+              if (typeof window.onManualMatchDsPicked === "function") {
+                window.onManualMatchDsPicked(screenMSelectedComponent);
+              }
+              goBack();
+            } else {
+              // Default: register a candidate mapping via code.js
+              parent.postMessage(
+                {
+                  pluginMessage: {
+                    type: "register-candidate-mapping",
+                    candidateName: screenMCurrentCandidate,
+                    componentKey: screenMSelectedComponent.componentKey,
+                    componentName: screenMSelectedComponent.componentName,
+                  },
+                },
+                "*"
+              );
+              // mapping-set handler (added in Task D2) will navigate back
+            }
+          });
+        }
 
         // ---- Populate Screen 02 (Parse preview) with parsed data ----
         function renderDsSync(sync) {
@@ -3824,6 +4004,14 @@
               showDoneScreen(counts, pageName);
             } else if (!msg.ok) {
               showBuildError(msg.error || "Build failed.");
+            }
+            return;
+          }
+          if (msg.type === "ds-components-list") {
+            screenMComponentsCache = msg.components || [];
+            renderLibraryComponents(screenMComponentsCache, "");
+            if (msg.error) {
+              console.warn("ds-components-list error:", msg.error);
             }
             return;
           }
