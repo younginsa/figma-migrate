@@ -1257,25 +1257,7 @@ figma.ui.onmessage = async (msg) => {
   switch (msg.type) {
     case "parse-html": {
       try {
-        // TEMP DIAGNOSTIC — remove after Phase A verification
-        const annotationCount = (msg.html.match(/data-ds-candidate/g) || []).length;
-        figma.ui.postMessage({
-          type: "__diag_parse_input__",
-          htmlLength: msg.html.length,
-          annotationsInInput: annotationCount,
-          firstAnnotationContext: annotationCount > 0
-            ? msg.html.substring(
-                Math.max(0, msg.html.indexOf("data-ds-candidate") - 30),
-                msg.html.indexOf("data-ds-candidate") + 100
-              )
-            : "(none)",
-        });
         const result = parseHtml(msg.html);
-        figma.ui.postMessage({
-          type: "__diag_parse_output__",
-          candidatesFound: result.candidates.length,
-          candidateNames: result.candidates.map(function (c) { return c.name; }),
-        });
         const sync = await dsSync();
         const suggestions = computeVariantSuggestions(result);
         figma.ui.postMessage({
