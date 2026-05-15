@@ -2437,6 +2437,11 @@
         // same payload without re-scraping the UI (user may have navigated
         // away or changed state between click and retry).
         var lastBuildPayload = null;
+        // Latest DS sync ok-state. Build button on Screen 03 is gated on this
+        // flag; the warning banner on Screen 02 (and mirrored on Screen 03)
+        // appears whenever this is false. Flipped by parse-result and
+        // library-set handlers.
+        var lastSyncOk = false;
 
         // ---- Inline error banner helper ----
         // Mounts a banner at the top of a screen's panel__body. Used by all error
@@ -2924,7 +2929,17 @@
               if (secondary) secondary.addEventListener("click", goBack);
               var primary = footer.querySelector(".btn--primary");
               if (primary) {
-                primary.addEventListener("click", function () { navigateTo(2); });
+                primary.addEventListener("click", function () {
+                  navigateTo(2);
+                  // Mirror the DS sync banner on Screen 03 if sync failed —
+                  // the Build button is also disabled by the gate handler.
+                  if (!lastSyncOk) {
+                    var s03 = document.querySelectorAll(".strip__cell")[2];
+                    renderInlineError(s03, "ds-sync",
+                      "DS sync hasn't succeeded yet. Build is blocked.",
+                      [{ label: "Choose library", onClick: openScreenL }]);
+                  }
+                });
               }
             }
           }
@@ -3853,6 +3868,24 @@
                 renderMappingScreen(msg.variantSuggestions, msg.variantLists);
               }
               if (msg.sync) renderDsSync(msg.sync);
+              lastSyncOk = !!(msg.sync && msg.sync.ok);
+              if (msg.sync && msg.sync.ok === false) {
+                var allCellsForSync = document.querySelectorAll(".strip__cell");
+                var screen02 = allCellsForSync[1];
+                renderInlineError(screen02, "ds-sync", msg.sync.error || "DS sync failed.", [
+                  {
+                    label: "Choose library",
+                    onClick: function () {
+                      clearInlineErrors(screen02);
+                      openScreenL();
+                    },
+                  },
+                ]);
+              }
+              // Reflect gate on Screen 03's Build button
+              var screen03BuildBtn = document.querySelectorAll(".strip__cell")[2]
+                .querySelector(".panel__footer .btn--primary");
+              if (screen03BuildBtn) screen03BuildBtn.disabled = !lastSyncOk;
               navigateTo(1); // transition to Screen 02 (Parse preview)
             } else {
               var allCells = document.querySelectorAll(".strip__cell");
@@ -3938,6 +3971,16 @@
               return;
             }
             if (msg.sync) renderDsSync(msg.sync);
+            lastSyncOk = !!(msg.sync && msg.sync.ok);
+            var s03Btn = document.querySelectorAll(".strip__cell")[2]
+              .querySelector(".panel__footer .btn--primary");
+            if (s03Btn) s03Btn.disabled = !lastSyncOk;
+            // Clear any stale sync-fail banner on Screen 02/03 if now ok
+            if (lastSyncOk) {
+              var allCellsSync = document.querySelectorAll(".strip__cell");
+              clearInlineErrors(allCellsSync[1]);
+              clearInlineErrors(allCellsSync[2]);
+            }
             goBack(); // return to Screen 02 (or wherever we came from)
             return;
           }
