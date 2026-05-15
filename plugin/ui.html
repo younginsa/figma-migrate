@@ -3955,6 +3955,35 @@
             }
             return;
           }
+          if (msg.type === "__diag_library_api__") {
+            console.warn("=== DIAG API SURFACE ===", msg.apiSurface);
+            var screenL = document.getElementById("screenL");
+            if (screenL) {
+              var list = document.getElementById("libraryList");
+              if (list) {
+                list.innerHTML =
+                  '<pre style="font:10px var(--font-mono); white-space:pre-wrap; padding:8px; background:#fff5d6; border:1px solid #d4a017; border-radius:4px;">DIAG api:\n' +
+                  JSON.stringify(msg.apiSurface, null, 2) + '</pre>';
+              }
+            }
+            return;
+          }
+          if (msg.type === "__diag_library_result__") {
+            console.warn("=== DIAG API RESULT ===", msg);
+            var screenL2 = document.getElementById("screenL");
+            if (screenL2) {
+              var list2 = document.getElementById("libraryList");
+              if (list2) {
+                list2.insertAdjacentHTML("beforeend",
+                  '<pre style="font:10px var(--font-mono); white-space:pre-wrap; padding:8px; margin-top:8px; background:#d6e4ff; border:1px solid #2563eb; border-radius:4px;">DIAG result:\nlibsType: ' + msg.libsType +
+                  '\nisArray: ' + msg.libsIsArray +
+                  '\nlength: ' + msg.libsLength +
+                  '\nsampleKeys: ' + JSON.stringify(msg.libsSample) +
+                  '\nraw: ' + JSON.stringify(msg.libsRaw, null, 2) + '</pre>');
+              }
+            }
+            return;
+          }
           if (msg.type === "libraries-list") {
             renderLibraryList(msg.libraries || [], msg.currentKey);
             return;
