@@ -1370,6 +1370,26 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-libraries": {
       try {
+        // TEMP DIAGNOSTIC — investigating why empty libraries returned
+        // in user's free-plan / drafts file context. Remove after Phase C resolution.
+        var apiSurface = {
+          teamLibraryExists: typeof figma.teamLibrary !== "undefined",
+          teamLibraryType: typeof figma.teamLibrary,
+          getAvailableLibrariesAsyncExists:
+            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibrariesAsync === "function"),
+          getAvailableLibraryAssetsAsyncExists:
+            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibraryAssetsAsync === "function"),
+          getAvailableLibraryComponentsAsyncExists:
+            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibraryComponentsAsync === "function"),
+          allTeamLibraryKeys: figma.teamLibrary
+            ? Object.keys(figma.teamLibrary).slice(0, 50)
+            : [],
+        };
+        figma.ui.postMessage({
+          type: "__diag_library_api__",
+          apiSurface: apiSurface,
+        });
+
         if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibrariesAsync) {
           figma.ui.postMessage({
             type: "libraries-list",
@@ -1380,6 +1400,19 @@ figma.ui.onmessage = async (msg) => {
           break;
         }
         var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
+        // TEMP DIAGNOSTIC — log the raw return value
+        figma.ui.postMessage({
+          type: "__diag_library_result__",
+          libsType: typeof libs,
+          libsIsArray: Array.isArray(libs),
+          libsLength: libs ? libs.length : null,
+          libsSample: libs && libs.length > 0
+            ? Object.keys(libs[0]).slice(0, 20)
+            : [],
+          libsRaw: libs && libs.length > 0
+            ? JSON.parse(JSON.stringify(libs.slice(0, 3)))
+            : libs,
+        });
         var stored = await figma.clientStorage.getAsync("dsLibrary");
         figma.ui.postMessage({
           type: "libraries-list",

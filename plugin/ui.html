@@ -3867,9 +3867,10 @@
               if (msg.variantSuggestions && msg.variantLists) {
                 renderMappingScreen(msg.variantSuggestions, msg.variantLists);
               }
-              if (msg.sync) renderDsSync(msg.sync);
               lastSyncOk = !!(msg.sync && msg.sync.ok);
               if (msg.sync && msg.sync.ok === false) {
+                // Sync failed: show only the actionable inline-error banner.
+                // Skip renderDsSync (would duplicate the error message).
                 var allCellsForSync = document.querySelectorAll(".strip__cell");
                 var screen02 = allCellsForSync[1];
                 renderInlineError(screen02, "ds-sync", msg.sync.error || "DS sync failed.", [
@@ -3881,6 +3882,9 @@
                     },
                   },
                 ]);
+              } else if (msg.sync) {
+                // Sync ok: show the green/info banner via renderDsSync.
+                renderDsSync(msg.sync);
               }
               // Reflect gate on Screen 03's Build button
               var screen03BuildBtn = document.querySelectorAll(".strip__cell")[2]

@@ -5,6 +5,7 @@
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma"],
+  "enableProposedApi": true,
   "networkAccess": {
     "allowedDomains": [
       "https://cdn.jsdelivr.net",
