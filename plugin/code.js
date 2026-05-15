@@ -1289,6 +1289,23 @@ figma.ui.onmessage = async (msg) => {
     case "parse-html": {
       try {
         const result = parseHtml(msg.html);
+        // Treat empty parse results as a soft error: if the HTML has no
+        // states/modals/toasts, the build can't produce anything useful.
+        // Surface it as a parse error rather than navigating to a useless
+        // Screen 02 with zeros everywhere. (Spec §5.2)
+        if (
+          result.states.length === 0 &&
+          result.modals.length === 0 &&
+          result.toasts.length === 0
+        ) {
+          figma.ui.postMessage({
+            type: "parse-result",
+            ok: false,
+            error:
+              "No states, modals, or toasts found in this HTML. Make sure it has a dev-panel switch with `case '<state>':` blocks, plus `openModal*()` / `showToast(...)` calls. See `Control/cpp-setting-tab-mockup.html` for the expected shape.",
+          });
+          break;
+        }
         const sync = await dsSync();
         const suggestions = computeVariantSuggestions(result);
         figma.ui.postMessage({
