@@ -23,6 +23,16 @@ figma.showUI(__html__, {
 async function dsSync() {
   var storedLib = await figma.clientStorage.getAsync("dsLibrary");
   if (storedLib && storedLib.key) {
+    if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibrariesAsync) {
+      return {
+        ok: false,
+        source: "library",
+        sourceName: storedLib.name,
+        error:
+          "Team library API not available in this Figma context. " +
+          "This may be a personal file or an older Figma version.",
+      };
+    }
     try {
       var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
       var lib = (libs || []).find(function (l) {
@@ -45,6 +55,10 @@ async function dsSync() {
         components = await figma.teamLibrary.getComponentsForLibraryAsync(lib);
       } else if (typeof lib.getComponentsAsync === "function") {
         components = await lib.getComponentsAsync();
+      } else {
+        throw new Error(
+          "This Figma version has no supported library-listing API (getComponentsForLibraryAsync or getComponentsAsync). Update Figma desktop or check the plugin manifest."
+        );
       }
       var compList = (components || []).map(function (c) {
         return {
@@ -1356,6 +1370,15 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-libraries": {
       try {
+        if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibrariesAsync) {
+          figma.ui.postMessage({
+            type: "libraries-list",
+            libraries: [],
+            error:
+              "Team library API not available. Open this plugin in a Figma file with team library access.",
+          });
+          break;
+        }
         var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
         var stored = await figma.clientStorage.getAsync("dsLibrary");
         figma.ui.postMessage({
