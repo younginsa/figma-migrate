@@ -2901,12 +2901,22 @@
             }
           }
 
-          // Screen 04 (Build progress): Cancel → back
+          // Screen 04 (Build progress): Cancel → post cancel message, wait for
+          // build-result.cancelled, then transition to Done with partial counts.
           if (allCells[3]) {
             var footer = allCells[3].querySelector(".panel__footer");
             if (footer) {
               var secondary = footer.querySelector(".btn--secondary, .btn--ghost");
-              if (secondary) secondary.addEventListener("click", goBack);
+              if (secondary) {
+                secondary.addEventListener("click", function () {
+                  parent.postMessage(
+                    { pluginMessage: { type: "cancel" } },
+                    "*"
+                  );
+                  // UI waits for build-result.cancelled; build-result handler
+                  // (modified below) routes cancelled outcomes to showDoneScreen.
+                });
+              }
             }
           }
 
@@ -3386,7 +3396,13 @@
             (counts.toasts || 0);
 
           var doneTitle = screen05.querySelector(".done__title");
-          if (doneTitle) doneTitle.textContent = "Built " + total + " artboards";
+          if (doneTitle) {
+            if (counts._cancelled) {
+              doneTitle.textContent = "Cancelled — " + total + " of N built";
+            } else {
+              doneTitle.textContent = "Built " + total + " artboards";
+            }
+          }
 
           var doneSubtitle = screen05.querySelector(".done__subtitle");
           if (doneSubtitle) {
@@ -3733,8 +3749,17 @@
             return;
           }
           if (msg.type === "build-result") {
-            // Only sent on failure; success path uses build-complete.
-            if (!msg.ok) {
+            if (msg.cancelled) {
+              // Treat cancel like a soft-complete: route to Done with partial counts
+              // and a "Cancelled" title flag.
+              var pageName = "Claude output";
+              if (targetPageLabel && targetPageLabel.textContent) {
+                pageName = targetPageLabel.textContent.trim() || pageName;
+              }
+              var counts = msg.counts || {};
+              counts._cancelled = true;
+              showDoneScreen(counts, pageName);
+            } else if (!msg.ok) {
               showBuildError(msg.error || "Build failed.");
             }
             return;

@@ -281,6 +281,11 @@ function parseHtml(html) {
 //     (h1, tab label), not into DS instance internals.
 // ============================================================
 
+// Cancel flag — set by the UI's `cancel` message during a build.
+// Checked at each artboard boundary in buildArtboards(); on detection,
+// the build emits build-result.cancelled and returns immediately.
+var _cancelRequested = false;
+
 // DS component keys (mirrors .claude/ds-manifest.json + runbook).
 // Hard-coded for v0.1 per spec §4.6 ("Multi-DS support" is v0.4).
 var DS_KEYS = {
@@ -861,6 +866,7 @@ async function applyTextStyle(target, snap) {
 // ---- Main orchestrator ---------------------------------------
 
 async function buildArtboards(payload) {
+  _cancelRequested = false;
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
   var states = parsed.states || [];
@@ -966,6 +972,15 @@ async function buildArtboards(payload) {
   var sampledStyles = null;
 
   for (var i = 0; i < plan.length; i++) {
+    if (_cancelRequested) {
+      figma.ui.postMessage({
+        type: "build-result",
+        ok: false,
+        cancelled: true,
+        counts: counts,
+      });
+      return;
+    }
     var spec = plan[i];
     var col = i % GRID_COLS;
     var row = Math.floor(i / GRID_COLS);
@@ -1178,6 +1193,15 @@ async function buildArtboards(payload) {
   var candidateOriginY = candidateBandY + 80;
 
   for (var ci = 0; ci < candidatesWithImages.length; ci++) {
+    if (_cancelRequested) {
+      figma.ui.postMessage({
+        type: "build-result",
+        ok: false,
+        cancelled: true,
+        counts: counts,
+      });
+      return;
+    }
     var ca = candidatesWithImages[ci];
     var ccol = ci % CAND_COLS;
     var crow = Math.floor(ci / CAND_COLS);
@@ -1417,6 +1441,11 @@ figma.ui.onmessage = async (msg) => {
       var w = typeof msg.width === "number" && msg.width > 0 ? msg.width : 380;
       var h = typeof msg.height === "number" && msg.height > 0 ? msg.height : 800;
       figma.ui.resize(w, h);
+      break;
+    }
+
+    case "cancel": {
+      _cancelRequested = true;
       break;
     }
 
