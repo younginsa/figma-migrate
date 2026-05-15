@@ -3686,8 +3686,16 @@
               if (msg.sync) renderDsSync(msg.sync);
               navigateTo(1); // transition to Screen 02 (Parse preview)
             } else {
-              console.error("Parse failed:", msg.error);
-              // TODO: inline error UI; for v0.1 first pass, console only.
+              var allCells = document.querySelectorAll(".strip__cell");
+              renderInlineError(allCells[0], "parse", msg.error || "Parse failed.", [
+                {
+                  label: "Dismiss",
+                  onClick: function () {
+                    clearInlineErrors(allCells[0]);
+                    if (htmlInput) htmlInput.focus();
+                  },
+                },
+              ]);
             }
             return;
           }
