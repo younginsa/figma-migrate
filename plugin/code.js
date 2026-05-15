@@ -236,12 +236,35 @@ function parseHtml(html) {
     }
   }
 
+  // data-ds-candidate annotations — HTML elements explicitly marked as
+  // structures missing from the DS. Build creates one artboard per
+  // distinct value. Authors add these annotations manually to mockups.
+  var candidates = [];
+  var seenCandidates = {};
+  var candPattern = /data-ds-candidate\s*=\s*["']([^"']+)["']/g;
+  while ((match = candPattern.exec(html)) !== null) {
+    var candName = match[1].trim();
+    if (!candName || seenCandidates[candName]) continue;
+    seenCandidates[candName] = true;
+    // Also try to capture the element's visible text content for later
+    // text-override hints (best-effort regex; not a real DOM parser).
+    var textMatch = new RegExp(
+      "data-ds-candidate\\s*=\\s*['\"]" +
+      candName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+      "['\"][^>]*>([\\s\\S]*?)</", ""
+    );
+    var textRes = textMatch.exec(html);
+    var htmlText = textRes ? textRes[1].replace(/<[^>]+>/g, "").trim().slice(0, 200) : "";
+    candidates.push({ name: candName, htmlText: htmlText });
+  }
+
   return {
     states: states,
     modals: modals,
     toasts: toasts,
     dsComponents: dsComponents,
     tabs: tabs,
+    candidates: candidates,
   };
 }
 

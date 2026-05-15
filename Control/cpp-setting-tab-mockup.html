@@ -1279,7 +1279,7 @@
       const selected = state.profiles.find(p => p.id === state.selectedProfileId);
       const others = state.profiles.filter(p => p.id !== state.selectedProfileId).sort((a, b) => a.id - b.id);
       const banner = state.listError
-        ? `<div class="banner" role="alert">
+        ? `<div class="banner" role="alert" data-ds-candidate="Inline banner (red error · blue info)">
              <span class="banner__icon">${ICON.alert}</span>
              <span class="banner__body">${state.listError}</span>
              <span class="banner__actions">
@@ -1325,7 +1325,7 @@
     function renderSelectedRow(profile) {
       return `
         <li>
-          <div class="profile-item profile-item--selected" data-profile-id="${profile.id}">
+          <div class="profile-item profile-item--selected" data-profile-id="${profile.id}" data-ds-candidate="Profile row — Selected (check + Details)">
             <span class="profile-item__check" aria-label="Selected">${ICON.check}</span>
             <span class="profile-item__name">Profile ${profile.id}</span>
             <span class="profile-item__action">
@@ -1420,7 +1420,7 @@
           </div>` : ''}
         <div class="editor-layout">
           <div class="chart-grid">
-            <section class="chart-card">
+            <section class="chart-card" data-ds-candidate="Chart card">
               <h3 class="chart-card__title">Combinator Position vs RPM</h3>
               <canvas id="rpmChart" class="chart-canvas"></canvas>
             </section>

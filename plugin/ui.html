@@ -1611,16 +1611,8 @@
                 <span class="pill pill--candidate">DS candidates</span>
                 <span>9 structures not in the DS</span>
               </h3>
-              <ul class="candidates-card__list">
-                <li><span class="candidates-card__list-name">Profile row — Selected (check + Details)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Profile row — Other (Details on hover)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Profile row — + Add Profile (dashed)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Inline banner (red error · blue info)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Editable data table with cell error tooltip</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Insert-row pill (between rows + bottom)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Chart card</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">Editor footer bar (3-button spread)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
-                <li><span class="candidates-card__list-name">40 px Button (between DS sizes 36 and 48)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+              <ul class="candidates-card__list" id="candidatesList">
+                <!-- Populated dynamically from parse-result.data.candidates -->
               </ul>
             </div>
           </div>
@@ -3543,6 +3535,44 @@
           );
         }
 
+        function renderCandidates(candidates) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen03 = allCells[2];
+          if (!screen03) return;
+          var list = screen03.querySelector("#candidatesList");
+          if (!list) return;
+          list.innerHTML = "";
+          if (!candidates || candidates.length === 0) {
+            var empty = document.createElement("li");
+            empty.className = "candidates-card__empty";
+            empty.textContent = "No DS candidates detected. Annotate elements with data-ds-candidate=\"…\" in HTML to flag them.";
+            empty.style.color = "var(--text-secondary)";
+            empty.style.fontStyle = "italic";
+            list.appendChild(empty);
+            return;
+          }
+          candidates.forEach(function (cand) {
+            var li = document.createElement("li");
+            var nameSpan = document.createElement("span");
+            nameSpan.className = "candidates-card__list-name";
+            nameSpan.textContent = cand.name;
+            li.appendChild(nameSpan);
+            // Pick element (HTML preview capture) — existing flow
+            var pickHtmlBtn = document.createElement("button");
+            pickHtmlBtn.className = "candidates-card__upload-btn";
+            pickHtmlBtn.type = "button";
+            pickHtmlBtn.textContent = "Pick element";
+            li.appendChild(pickHtmlBtn);
+            var status = document.createElement("span");
+            status.className = "candidates-card__upload-status";
+            status.hidden = true;
+            status.textContent = "✓";
+            li.appendChild(status);
+            // Pick DS component button is added in Task D2 — skip for now.
+            list.appendChild(li);
+          });
+        }
+
         // Walk Screen 03's mapping rows and collect the user's choices,
         // grouped by kind. Each entry is { sourceKey: variantValue }.
         // If a kind has no rows, the entry is an empty object.
@@ -3638,6 +3668,7 @@
               lastParsedData = msg.data || {};
               lastVariantLists = msg.variantLists || null;
               populateParseResults(msg.data || {});
+              renderCandidates((msg.data && msg.data.candidates) || []);
               // Populate Screen 03's mapping dropdowns with the auto-suggested
               // variants. User reviews + adjusts before clicking Build.
               if (msg.variantSuggestions && msg.variantLists) {
