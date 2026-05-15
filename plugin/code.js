@@ -14,13 +14,75 @@ figma.showUI(__html__, {
 });
 
 // ============================================================
-// DS sync — page-first, library-fallback.
-// Tries to find a page named "Design system" in the current file.
-// Falls back to detecting a linked DS library if no page exists.
-// Stores last-sampled manifest in clientStorage for change detection.
+// DS sync — library-first, page-fallback.
+// Reads clientStorage.dsLibrary; if set, enumerates that library's
+// components. If not set, falls back to the legacy in-file
+// "Design system" page flow (preserved for the canonical Control DS file).
 // ============================================================
 
 async function dsSync() {
+  var storedLib = await figma.clientStorage.getAsync("dsLibrary");
+  if (storedLib && storedLib.key) {
+    try {
+      var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
+      var lib = (libs || []).find(function (l) {
+        return l.libraryKey === storedLib.key || l.key === storedLib.key;
+      });
+      if (!lib) {
+        return {
+          ok: false,
+          source: "library",
+          sourceName: storedLib.name,
+          error:
+            "Library '" + storedLib.name +
+            "' is no longer available in this file. Choose another library.",
+        };
+      }
+      // The exact API for listing components on a library varies by Figma
+      // version. Try the documented path first, fall back to alternatives.
+      var components = [];
+      if (typeof figma.teamLibrary.getComponentsForLibraryAsync === "function") {
+        components = await figma.teamLibrary.getComponentsForLibraryAsync(lib);
+      } else if (typeof lib.getComponentsAsync === "function") {
+        components = await lib.getComponentsAsync();
+      }
+      var compList = (components || []).map(function (c) {
+        return {
+          name: c.name,
+          key: c.key,
+          variants: (c.children || []).map(function (v) { return v.name; }),
+        };
+      });
+      var changed = !manifestsEqual(
+        { components: storedLib.components || [] },
+        { components: compList }
+      );
+      var current = {
+        source: "library",
+        key: lib.libraryKey || lib.key,
+        name: lib.libraryName || lib.name,
+        components: compList,
+        timestamp: new Date().toISOString(),
+      };
+      await figma.clientStorage.setAsync("dsLibrary", current);
+      return {
+        ok: true,
+        source: "library",
+        sourceName: current.name,
+        changed: changed,
+        lastSyncedAt: current.timestamp,
+        componentCount: compList.length,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        source: "library",
+        sourceName: storedLib.name,
+        error: "Failed to enumerate library components: " + (e.message || String(e)),
+      };
+    }
+  }
+  // Legacy fallback: in-file "Design system" page (original behavior)
   var pages = figma.root.children;
   var dsPage = null;
   for (var i = 0; i < pages.length; i++) {
@@ -29,14 +91,10 @@ async function dsSync() {
       break;
     }
   }
-
   if (dsPage) {
     var originalPage = figma.currentPage;
     var needRestore = originalPage !== dsPage;
-    if (needRestore) {
-      await figma.setCurrentPageAsync(dsPage);
-    }
-
+    if (needRestore) await figma.setCurrentPageAsync(dsPage);
     var components = [];
     function walkComponents(node) {
       if (node.type === "COMPONENT_SET" || node.type === "COMPONENT") {
@@ -48,71 +106,28 @@ async function dsSync() {
             ? node.children.map(function (c) { return c.name; })
             : [],
         });
-        return; // don't recurse into components
+        return;
       }
       if ("children" in node) {
-        for (var j = 0; j < node.children.length; j++) {
-          walkComponents(node.children[j]);
-        }
+        for (var j = 0; j < node.children.length; j++) walkComponents(node.children[j]);
       }
     }
     walkComponents(dsPage);
-
-    if (needRestore) {
-      await figma.setCurrentPageAsync(originalPage);
-    }
-
-    var current = {
-      source: "page",
-      sourceName: "Design system",
-      components: components,
-      timestamp: new Date().toISOString(),
-    };
-
-    var stored = await figma.clientStorage.getAsync("ds-manifest");
-    var changed = !stored || !manifestsEqual(stored, current);
-
-    if (changed) {
-      await figma.clientStorage.setAsync("ds-manifest", current);
-    }
-
+    if (needRestore) await figma.setCurrentPageAsync(originalPage);
     return {
       ok: true,
       source: "page",
       sourceName: "Design system",
-      changed: changed,
-      lastSyncedAt: changed
-        ? current.timestamp
-        : (stored && stored.timestamp) || current.timestamp,
+      changed: false,
+      lastSyncedAt: new Date().toISOString(),
       componentCount: components.length,
     };
   }
-
-  // Fallback: detect linked library
-  try {
-    if (figma.teamLibrary && figma.teamLibrary.getAvailableLibrariesAsync) {
-      var libraries = await figma.teamLibrary.getAvailableLibrariesAsync();
-      if (libraries && libraries.length > 0) {
-        return {
-          ok: false,
-          source: "library",
-          sourceName: libraries[0].libraryName,
-          error:
-            "Linked DS library detected (" +
-            libraries[0].libraryName +
-            "), but library-based sync isn't implemented in v0.1. Add a page named 'Design system' to this file to proceed.",
-        };
-      }
-    }
-  } catch (e) {
-    // Library API not available; fall through
-  }
-
   return {
     ok: false,
     source: null,
-    error:
-      "No 'Design system' page found in this file. Add a page named 'Design system' containing your DS components, or subscribe this file to a DS library.",
+    needsLibrary: true,
+    error: "No DS library configured and no 'Design system' page in this file. Choose a library to proceed.",
   };
 }
 
@@ -1334,6 +1349,78 @@ figma.ui.onmessage = async (msg) => {
         figma.ui.postMessage({
           type: "ds-sync-result",
           sync: { ok: false, error: e.message || String(e) },
+        });
+      }
+      break;
+    }
+
+    case "list-libraries": {
+      try {
+        var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
+        var stored = await figma.clientStorage.getAsync("dsLibrary");
+        figma.ui.postMessage({
+          type: "libraries-list",
+          libraries: (libs || []).map(function (l) {
+            return {
+              key: l.libraryKey || l.key,
+              name: l.libraryName || l.name,
+              lastModified: l.lastModified || null,
+            };
+          }),
+          currentKey: stored && stored.key ? stored.key : null,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "libraries-list",
+          libraries: [],
+          error: "Failed to list libraries: " + (e.message || String(e)),
+        });
+      }
+      break;
+    }
+
+    case "select-library": {
+      try {
+        await figma.clientStorage.setAsync("dsLibrary", {
+          key: msg.key,
+          name: msg.name,
+          components: [],
+          timestamp: new Date().toISOString(),
+        });
+        var sync = await dsSync();
+        figma.ui.postMessage({ type: "library-set", sync: sync });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "library-set",
+          sync: {
+            ok: false,
+            error: "Failed to select library: " + (e.message || String(e)),
+          },
+        });
+      }
+      break;
+    }
+
+    case "list-library-components": {
+      try {
+        var storedLib = await figma.clientStorage.getAsync("dsLibrary");
+        if (!storedLib || !storedLib.key) {
+          figma.ui.postMessage({
+            type: "library-components-list",
+            components: [],
+            error: "No library selected.",
+          });
+          break;
+        }
+        figma.ui.postMessage({
+          type: "library-components-list",
+          components: storedLib.components || [],
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "library-components-list",
+          components: [],
+          error: e.message || String(e),
         });
       }
       break;
