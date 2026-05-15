@@ -2377,6 +2377,11 @@
         // Cancelled — N of M built title to show the real denominator
         // instead of a literal "N").
         var lastBuildTotal = 0;
+        // Last build payload posted to code.js. Cached at Build click so
+        // the "Try again" action on build-error can re-post the exact
+        // same payload without re-scraping the UI (user may have navigated
+        // away or changed state between click and retry).
+        var lastBuildPayload = null;
 
         // ---- Inline error banner helper ----
         // Mounts a banner at the top of a screen's panel__body. Used by all error
@@ -2888,18 +2893,14 @@
                   // dropdowns. These override the build's name-based
                   // heuristics so users can fix mismatches per-row.
                   var variantChoices = scrapeVariantChoices(allCells[2]);
-                  parent.postMessage(
-                    {
-                      pluginMessage: {
-                        type: "build",
-                        parsed: lastParsedData || {},
-                        filename: lastFilename || "",
-                        candidates: candidates,
-                        variantChoices: variantChoices,
-                      },
-                    },
-                    "*"
-                  );
+                  lastBuildPayload = {
+                    type: "build",
+                    parsed: lastParsedData || {},
+                    filename: lastFilename || "",
+                    candidates: candidates,
+                    variantChoices: variantChoices,
+                  };
+                  parent.postMessage({ pluginMessage: lastBuildPayload }, "*");
                 });
               }
             }
@@ -3461,6 +3462,25 @@
             if (p) p.textContent = "error";
           }
           appendBuildLog(message || "Unknown error", "warn");
+          renderInlineError(screen04, "build", message || "Build failed.", [
+            {
+              label: "Try again",
+              onClick: function () {
+                if (!lastBuildPayload) return;
+                clearInlineErrors(screen04);
+                resetBuildProgressUI();
+                buildStartedAt = Date.now();
+                parent.postMessage({ pluginMessage: lastBuildPayload }, "*");
+              },
+            },
+            {
+              label: "Back to coverage",
+              onClick: function () {
+                clearInlineErrors(screen04);
+                goBack();
+              },
+            },
+          ]);
         }
 
         // Render the Screen 03 mapping rows from the variant suggestions
