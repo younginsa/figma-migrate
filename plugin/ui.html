@@ -3923,6 +3923,20 @@
             return;
           }
           if (msg.type === "library-set") {
+            // If sync failed, keep user on Screen L so they can retry or pick another.
+            // Surface the error inline above the library list.
+            if (msg.sync && msg.sync.ok === false) {
+              var screenL = document.getElementById("screenL");
+              if (screenL) {
+                renderInlineError(screenL, "library", msg.sync.error || "Failed to save library selection.", [
+                  {
+                    label: "Dismiss",
+                    onClick: function () { clearInlineErrors(screenL); },
+                  },
+                ]);
+              }
+              return;
+            }
             if (msg.sync) renderDsSync(msg.sync);
             goBack(); // return to Screen 02 (or wherever we came from)
             return;
