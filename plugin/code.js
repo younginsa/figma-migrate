@@ -14,89 +14,13 @@ figma.showUI(__html__, {
 });
 
 // ============================================================
-// DS sync — library-first, page-fallback.
-// Reads clientStorage.dsLibrary; if set, enumerates that library's
-// components. If not set, falls back to the legacy in-file
-// "Design system" page flow (preserved for the canonical Control DS file).
+// DS sync — Design-system-page-only.
+// Walks the in-file "Design system" page for components and
+// persists them to clientStorage.dsComponents for Phase D's
+// component picker. Library import is deferred post-v0.1.
 // ============================================================
 
 async function dsSync() {
-  var storedLib = await figma.clientStorage.getAsync("dsLibrary");
-  if (storedLib && storedLib.key) {
-    if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibrariesAsync) {
-      return {
-        ok: false,
-        source: "library",
-        sourceName: storedLib.name,
-        error:
-          "Team library API not available in this Figma context. " +
-          "This may be a personal file or an older Figma version.",
-      };
-    }
-    try {
-      var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
-      var lib = (libs || []).find(function (l) {
-        return l.libraryKey === storedLib.key || l.key === storedLib.key;
-      });
-      if (!lib) {
-        return {
-          ok: false,
-          source: "library",
-          sourceName: storedLib.name,
-          error:
-            "Library '" + storedLib.name +
-            "' is no longer available in this file. Choose another library.",
-        };
-      }
-      // The exact API for listing components on a library varies by Figma
-      // version. Try the documented path first, fall back to alternatives.
-      var components = [];
-      if (typeof figma.teamLibrary.getComponentsForLibraryAsync === "function") {
-        components = await figma.teamLibrary.getComponentsForLibraryAsync(lib);
-      } else if (typeof lib.getComponentsAsync === "function") {
-        components = await lib.getComponentsAsync();
-      } else {
-        throw new Error(
-          "This Figma version has no supported library-listing API (getComponentsForLibraryAsync or getComponentsAsync). Update Figma desktop or check the plugin manifest."
-        );
-      }
-      var compList = (components || []).map(function (c) {
-        return {
-          name: c.name,
-          key: c.key,
-          variants: (c.children || []).map(function (v) { return v.name; }),
-        };
-      });
-      var changed = !manifestsEqual(
-        { components: storedLib.components || [] },
-        { components: compList }
-      );
-      var current = {
-        source: "library",
-        key: lib.libraryKey || lib.key,
-        name: lib.libraryName || lib.name,
-        components: compList,
-        timestamp: new Date().toISOString(),
-      };
-      await figma.clientStorage.setAsync("dsLibrary", current);
-      return {
-        ok: true,
-        source: "library",
-        sourceName: current.name,
-        changed: changed,
-        lastSyncedAt: current.timestamp,
-        componentCount: compList.length,
-      };
-    } catch (e) {
-      return {
-        ok: false,
-        source: "library",
-        sourceName: storedLib.name,
-        error: "Failed to enumerate library components: " + (e.message || String(e)),
-      };
-    }
-  }
-  // Legacy fallback: in-file "Design system" page (original behavior)
   var pages = figma.root.children;
   var dsPage = null;
   for (var i = 0; i < pages.length; i++) {
@@ -105,43 +29,62 @@ async function dsSync() {
       break;
     }
   }
-  if (dsPage) {
-    var originalPage = figma.currentPage;
-    var needRestore = originalPage !== dsPage;
-    if (needRestore) await figma.setCurrentPageAsync(dsPage);
-    var components = [];
-    function walkComponents(node) {
-      if (node.type === "COMPONENT_SET" || node.type === "COMPONENT") {
-        components.push({
-          name: node.name,
-          key: node.key,
-          type: node.type,
-          variants: (node.type === "COMPONENT_SET" && node.children)
-            ? node.children.map(function (c) { return c.name; })
-            : [],
-        });
-        return;
-      }
-      if ("children" in node) {
-        for (var j = 0; j < node.children.length; j++) walkComponents(node.children[j]);
-      }
-    }
-    walkComponents(dsPage);
-    if (needRestore) await figma.setCurrentPageAsync(originalPage);
+
+  if (!dsPage) {
     return {
-      ok: true,
-      source: "page",
-      sourceName: "Design system",
-      changed: false,
-      lastSyncedAt: new Date().toISOString(),
-      componentCount: components.length,
+      ok: false,
+      source: null,
+      error:
+        "No 'Design system' page in this file. Add a page named 'Design system' containing your DS components, then re-parse.",
     };
   }
+
+  // Walk the page for components.
+  var originalPage = figma.currentPage;
+  var needRestore = originalPage !== dsPage;
+  if (needRestore) await figma.setCurrentPageAsync(dsPage);
+
+  var components = [];
+  function walkComponents(node) {
+    if (node.type === "COMPONENT_SET" || node.type === "COMPONENT") {
+      components.push({
+        name: node.name,
+        key: node.key,
+        type: node.type,
+        variants:
+          node.type === "COMPONENT_SET" && node.children
+            ? node.children.map(function (c) {
+                return c.name;
+              })
+            : [],
+      });
+      return; // don't recurse into components
+    }
+    if ("children" in node) {
+      for (var j = 0; j < node.children.length; j++) walkComponents(node.children[j]);
+    }
+  }
+  walkComponents(dsPage);
+
+  if (needRestore) await figma.setCurrentPageAsync(originalPage);
+
+  // Persist components so Phase D's Screen M (Pick DS component picker)
+  // can render them without re-walking the page on every open.
+  var current = {
+    source: "page",
+    sourceName: "Design system",
+    components: components,
+    timestamp: new Date().toISOString(),
+  };
+  await figma.clientStorage.setAsync("dsComponents", current);
+
   return {
-    ok: false,
-    source: null,
-    needsLibrary: true,
-    error: "No DS library configured and no 'Design system' page in this file. Choose a library to proceed.",
+    ok: true,
+    source: "page",
+    sourceName: "Design system",
+    changed: false,
+    lastSyncedAt: current.timestamp,
+    componentCount: components.length,
   };
 }
 
@@ -1368,113 +1311,25 @@ figma.ui.onmessage = async (msg) => {
       break;
     }
 
-    case "list-libraries": {
+    case "list-ds-components": {
       try {
-        // TEMP DIAGNOSTIC — investigating why empty libraries returned
-        // in user's free-plan / drafts file context. Remove after Phase C resolution.
-        var apiSurface = {
-          teamLibraryExists: typeof figma.teamLibrary !== "undefined",
-          teamLibraryType: typeof figma.teamLibrary,
-          getAvailableLibrariesAsyncExists:
-            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibrariesAsync === "function"),
-          getAvailableLibraryAssetsAsyncExists:
-            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibraryAssetsAsync === "function"),
-          getAvailableLibraryComponentsAsyncExists:
-            !!(figma.teamLibrary && typeof figma.teamLibrary.getAvailableLibraryComponentsAsync === "function"),
-          allTeamLibraryKeys: figma.teamLibrary
-            ? Object.keys(figma.teamLibrary).slice(0, 50)
-            : [],
-        };
-        figma.ui.postMessage({
-          type: "__diag_library_api__",
-          apiSurface: apiSurface,
-        });
-
-        if (!figma.teamLibrary || !figma.teamLibrary.getAvailableLibrariesAsync) {
+        var stored = await figma.clientStorage.getAsync("dsComponents");
+        if (!stored || !stored.components) {
           figma.ui.postMessage({
-            type: "libraries-list",
-            libraries: [],
-            error:
-              "Team library API not available. Open this plugin in a Figma file with team library access.",
-          });
-          break;
-        }
-        var libs = await figma.teamLibrary.getAvailableLibrariesAsync();
-        // TEMP DIAGNOSTIC — log the raw return value
-        figma.ui.postMessage({
-          type: "__diag_library_result__",
-          libsType: typeof libs,
-          libsIsArray: Array.isArray(libs),
-          libsLength: libs ? libs.length : null,
-          libsSample: libs && libs.length > 0
-            ? Object.keys(libs[0]).slice(0, 20)
-            : [],
-          libsRaw: libs && libs.length > 0
-            ? JSON.parse(JSON.stringify(libs.slice(0, 3)))
-            : libs,
-        });
-        var stored = await figma.clientStorage.getAsync("dsLibrary");
-        figma.ui.postMessage({
-          type: "libraries-list",
-          libraries: (libs || []).map(function (l) {
-            return {
-              key: l.libraryKey || l.key,
-              name: l.libraryName || l.name,
-              lastModified: l.lastModified || null,
-            };
-          }),
-          currentKey: stored && stored.key ? stored.key : null,
-        });
-      } catch (e) {
-        figma.ui.postMessage({
-          type: "libraries-list",
-          libraries: [],
-          error: "Failed to list libraries: " + (e.message || String(e)),
-        });
-      }
-      break;
-    }
-
-    case "select-library": {
-      try {
-        await figma.clientStorage.setAsync("dsLibrary", {
-          key: msg.key,
-          name: msg.name,
-          components: [],
-          timestamp: new Date().toISOString(),
-        });
-        var sync = await dsSync();
-        figma.ui.postMessage({ type: "library-set", sync: sync });
-      } catch (e) {
-        figma.ui.postMessage({
-          type: "library-set",
-          sync: {
-            ok: false,
-            error: "Failed to select library: " + (e.message || String(e)),
-          },
-        });
-      }
-      break;
-    }
-
-    case "list-library-components": {
-      try {
-        var storedLib = await figma.clientStorage.getAsync("dsLibrary");
-        if (!storedLib || !storedLib.key) {
-          figma.ui.postMessage({
-            type: "library-components-list",
+            type: "ds-components-list",
             components: [],
-            error: "No library selected.",
+            error: "No DS components synced yet. Parse HTML first.",
           });
           break;
         }
         figma.ui.postMessage({
-          type: "library-components-list",
-          components: storedLib.components || [],
+          type: "ds-components-list",
+          components: stored.components,
+          sourceName: stored.sourceName,
         });
       } catch (e) {
         figma.ui.postMessage({
-          type: "library-components-list",
+          type: "ds-components-list",
           components: [],
           error: e.message || String(e),
         });
