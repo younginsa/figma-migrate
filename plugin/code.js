@@ -981,6 +981,9 @@ async function buildArtboards(payload) {
       });
       return;
     }
+    // Yield to event loop so a `cancel` message posted between iterations
+    // can be processed before we start the next artboard.
+    await new Promise(function (r) { setTimeout(r, 0); });
     var spec = plan[i];
     var col = i % GRID_COLS;
     var row = Math.floor(i / GRID_COLS);
@@ -1194,6 +1197,7 @@ async function buildArtboards(payload) {
 
   for (var ci = 0; ci < candidatesWithImages.length; ci++) {
     if (_cancelRequested) {
+      counts.candidates = candidateNodes.length;
       figma.ui.postMessage({
         type: "build-result",
         ok: false,
@@ -1202,6 +1206,9 @@ async function buildArtboards(payload) {
       });
       return;
     }
+    // Yield to event loop so a `cancel` message posted between iterations
+    // can be processed before we start the next artboard.
+    await new Promise(function (r) { setTimeout(r, 0); });
     var ca = candidatesWithImages[ci];
     var ccol = ci % CAND_COLS;
     var crow = Math.floor(ci / CAND_COLS);

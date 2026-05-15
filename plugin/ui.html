@@ -2373,6 +2373,10 @@
         // Used by the mapping rows on Screen 03 to show available DS
         // variants in each dropdown.
         var lastVariantLists = null;
+        // Planned total from the most recent build start (used in the
+        // Cancelled — N of M built title to show the real denominator
+        // instead of a literal "N").
+        var lastBuildTotal = 0;
 
         // ---- Inline error banner helper ----
         // Mounts a banner at the top of a screen's panel__body. Used by all error
@@ -3398,7 +3402,8 @@
           var doneTitle = screen05.querySelector(".done__title");
           if (doneTitle) {
             if (counts._cancelled) {
-              doneTitle.textContent = "Cancelled — " + total + " of N built";
+              var denominator = lastBuildTotal > 0 ? lastBuildTotal : total;
+              doneTitle.textContent = "Cancelled — " + total + " of " + denominator + " built";
             } else {
               doneTitle.textContent = "Built " + total + " artboards";
             }
@@ -3723,6 +3728,7 @@
             // phase=start carries `total` (and `section`); subsequent
             // building messages carry index/total/name per artboard.
             if (msg.phase === "start") {
+              lastBuildTotal = msg.total || 0;
               updateBuildProgress(-1, msg.total || 0);
               return;
             }
