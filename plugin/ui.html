@@ -3738,8 +3738,10 @@
               }
               lastSyncOk = !!(msg.sync && msg.sync.ok);
               if (msg.sync && msg.sync.ok === false) {
-                // Sync failed: show only the actionable inline-error banner.
-                // Skip renderDsSync (would duplicate the error message).
+                // Sync failed: hide the static #dsSyncBanner (stale "Checking…"
+                // text) and show only the actionable inline-error banner.
+                var dsSyncBannerEl = document.getElementById("dsSyncBanner");
+                if (dsSyncBannerEl) dsSyncBannerEl.style.display = "none";
                 var allCellsForSync = document.querySelectorAll(".strip__cell");
                 var screen02 = allCellsForSync[1];
                 renderInlineError(screen02, "ds-sync", msg.sync.error || "DS sync failed.", [
@@ -3751,7 +3753,9 @@
                   },
                 ]);
               } else if (msg.sync) {
-                // Sync ok: show the green/info banner via renderDsSync.
+                // Sync ok: ensure banner is visible and show the green/info banner.
+                var dsSyncBannerEl2 = document.getElementById("dsSyncBanner");
+                if (dsSyncBannerEl2) dsSyncBannerEl2.style.display = "";
                 renderDsSync(msg.sync);
               }
               // Reflect gate on Screen 03's Build button
