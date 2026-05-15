@@ -839,6 +839,11 @@ async function applyTextStyle(target, snap) {
 
 async function buildArtboards(payload) {
   _cancelRequested = false;
+  // Load persisted candidate-to-DS-component mappings (set via the
+  // per-candidate "Pick DS component" flow in Screen M). Used in the
+  // DS Candidates band loop below to instantiate the real DS component
+  // instead of the placeholder screenshot frame.
+  var candidateMappings = (await figma.clientStorage.getAsync("candidateMappings")) || {};
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
   var states = parsed.states || [];
@@ -1202,31 +1207,65 @@ async function buildArtboards(payload) {
     candTitle.y = cellY;
     targetPage.appendChild(candTitle);
 
-    // Frame containing the screenshot. createImage() throws if bytes
-    // aren't a valid image — wrap defensively so one bad upload
-    // doesn't kill the whole build.
-    try {
-      var imgNode = figma.createImage(ca.imageBytes);
-      var candFrame = figma.createFrame();
-      candFrame.name = "DS Candidate — " + ca.name;
-      candFrame.resize(CAND_W, CAND_H);
-      candFrame.fills = [
-        { type: "IMAGE", scaleMode: "FIT", imageHash: imgNode.hash },
-      ];
-      // Subtle border so the frame is visible even on the same color
-      // as the canvas bg.
-      candFrame.strokes = [
-        { type: "SOLID", color: { r: 0.85, g: 0.86, b: 0.88 } },
-      ];
-      candFrame.strokeWeight = 1;
-      candFrame.cornerRadius = 6;
-      targetPage.appendChild(candFrame);
-      candFrame.x = cellX;
-      candFrame.y = cellY + Math.round(candTitle.height) + 8;
-      candidateNodes.push(candFrame);
-    } catch (eImg) {
-      warnings.push("DS Candidate " + ca.name + ": image embed failed — " + (eImg.message || String(eImg)));
-      counts.warnings++;
+    // If this candidate has a user-picked DS component mapping (set
+    // via Screen M's "Pick DS component" flow), try to instantiate
+    // the real component instead of the placeholder screenshot frame.
+    var mapping = candidateMappings[ca.name];
+    var instanceCreated = false;
+    if (mapping && mapping.componentKey) {
+      try {
+        var comp = await figma.importComponentByKeyAsync(mapping.componentKey);
+        if (comp) {
+          var inst = comp.createInstance();
+          inst.name = "DS Candidate — " + ca.name;
+          targetPage.appendChild(inst);
+          inst.x = cellX;
+          inst.y = cellY + Math.round(candTitle.height) + 8;
+          candidateNodes.push(inst);
+          instanceCreated = true;
+        }
+      } catch (e) {
+        // Fall back to placeholder; surface a warning in the build log.
+        figma.ui.postMessage({
+          type: "progress",
+          phase: "building",
+          index: ci,
+          total: candidatesWithImages.length,
+          section: "candidates",
+          name: "(warn) failed to import '" + (mapping.componentName || mapping.componentKey) + "' for " + ca.name + ": " + (e.message || String(e)),
+        });
+        warnings.push("DS Candidate " + ca.name + ": import '" + (mapping.componentName || mapping.componentKey) + "' failed — " + (e.message || String(e)));
+        counts.warnings++;
+      }
+    }
+
+    if (!instanceCreated) {
+      // Frame containing the screenshot. createImage() throws if bytes
+      // aren't a valid image — wrap defensively so one bad upload
+      // doesn't kill the whole build.
+      try {
+        var imgNode = figma.createImage(ca.imageBytes);
+        var candFrame = figma.createFrame();
+        candFrame.name = "DS Candidate — " + ca.name;
+        candFrame.resize(CAND_W, CAND_H);
+        candFrame.fills = [
+          { type: "IMAGE", scaleMode: "FIT", imageHash: imgNode.hash },
+        ];
+        // Subtle border so the frame is visible even on the same color
+        // as the canvas bg.
+        candFrame.strokes = [
+          { type: "SOLID", color: { r: 0.85, g: 0.86, b: 0.88 } },
+        ];
+        candFrame.strokeWeight = 1;
+        candFrame.cornerRadius = 6;
+        targetPage.appendChild(candFrame);
+        candFrame.x = cellX;
+        candFrame.y = cellY + Math.round(candTitle.height) + 8;
+        candidateNodes.push(candFrame);
+      } catch (eImg) {
+        warnings.push("DS Candidate " + ca.name + ": image embed failed — " + (eImg.message || String(eImg)));
+        counts.warnings++;
+      }
     }
   }
   counts.candidates = candidateNodes.length;
