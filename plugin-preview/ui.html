@@ -1,0 +1,2226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>figma-migrate plugin — v0.1 panel mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    /* ==========================================================
+       HiNAS Cloud / Day mode tokens — for plugins inside Figma
+       (Figma's UI is light by default; the plugin panel mirrors
+       the host surface, not HiNAS Control's Dusk dark.)
+       ========================================================== */
+    :root {
+      --bg-page:        #EDEDF0;     /* canvas / Figma surface */
+      --bg-panel:       #FFFFFF;     /* plugin panel */
+      --bg-elevated:    #FAFAFB;     /* cards inside panel */
+      --bg-row-hover:   #F2F4F7;
+      --bg-input:       #FFFFFF;
+      --bg-overlay:     rgba(20, 22, 28, 0.4);
+
+      --border-default: #DFE1E6;
+      --border-subtle:  #ECEEF1;
+      --border-emphasis:#C0C4CC;
+
+      --text-primary:   #1F2024;
+      --text-secondary: #4D505B;
+      --text-muted:     #8A8E99;
+      --text-emphasis:  #0E0F12;
+      --text-on-primary:#FFFFFF;
+
+      --primary:        #1379F3;
+      --primary-hover:  #348FF4;
+      --primary-subtle: #E4F0FE;
+
+      --success:        #2BB46D;
+      --success-subtle: #E6F6EE;
+      --warning:        #F4810C;
+      --warning-subtle: #FDF1E2;
+      --danger:         #FF4141;
+      --danger-subtle:  #FEE7E7;
+
+      --font:           "Inter", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      --font-mono:      "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 10px;
+
+      --shadow-panel: 0 1px 3px rgba(15, 17, 22, 0.06), 0 8px 24px rgba(15, 17, 22, 0.08);
+      --shadow-modal: 0 12px 32px rgba(15, 17, 22, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text-primary);
+      background: var(--bg-page);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ==========================================================
+       Page chrome — stakeholder review canvas
+       ========================================================== */
+    .doc {
+      max-width: 2280px;
+      margin: 0 auto;
+      padding: 56px 48px 96px;
+    }
+    .doc__header { margin-bottom: 48px; }
+    .doc__eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 0 0 8px;
+    }
+    .doc__title {
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text-emphasis);
+      margin: 0 0 12px;
+    }
+    .doc__subtitle {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin: 0;
+    }
+    .doc__meta {
+      margin-top: 24px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .doc__meta-item strong {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .strip {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 32px;
+      overflow-x: auto;
+      padding: 16px 4px 24px;
+      align-items: flex-start;
+    }
+    .strip::-webkit-scrollbar { height: 8px; }
+    .strip::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+
+    .strip__cell {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .strip__label {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding-left: 4px;
+    }
+    .strip__num {
+      font: 600 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .strip__caption {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================================
+       Plugin panel — 360 wide, sized like a real Figma plugin
+       ========================================================== */
+    .panel {
+      width: 360px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .panel--tall { min-height: 640px; }
+
+    .panel__topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      min-height: 40px;
+    }
+    .panel__back {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .panel__back:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+    .panel__title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .panel__topbar-meta {
+      font: 500 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .panel__close {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .panel__close:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+
+    .panel__body {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel__footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .panel__footer--right { justify-content: flex-end; }
+
+    /* Status banner (DS sync, etc.) */
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+    .banner--success { background: var(--success-subtle); color: #1A6E45; }
+    .banner--warning { background: var(--warning-subtle); color: #8B4A07; }
+    .banner--info    { background: var(--primary-subtle); color: #0F4F9E; }
+    .banner__icon {
+      flex: 0 0 16px;
+      display: inline-grid;
+      place-items: center;
+    }
+    .banner__body { flex: 1; }
+    .banner__action {
+      background: transparent;
+      border: 0;
+      font: 600 12px/1 var(--font);
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    /* Generic section card */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .card__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .card__head--static { cursor: default; }
+    .card__count {
+      display: inline-grid;
+      place-items: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 11px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      font: 600 11px/1 var(--font);
+      color: var(--text-secondary);
+    }
+    .card__title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .card__chev {
+      color: var(--text-muted);
+      transform: rotate(0deg);
+      transition: transform 120ms ease;
+    }
+    .card--open .card__chev { transform: rotate(180deg); }
+    .card__body {
+      padding: 4px 12px 12px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .card__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .card__list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .card__list-item:last-child { border-bottom: 0; }
+    .card__list-item-name { color: var(--text-primary); flex: 1; }
+    .card__list-item-meta { font: 500 11px/1.4 var(--font-mono); color: var(--text-muted); }
+    .pill {
+      display: inline-grid;
+      place-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font: 600 10px/1.4 var(--font);
+      letter-spacing: 0.02em;
+    }
+    .pill--demo    { background: var(--bg-row-hover); color: var(--text-muted); }
+    .pill--demo-included { background: var(--primary-subtle); color: #0F4F9E; }
+    .pill--excluded { background: var(--bg-row-hover); color: var(--text-muted); }
+    .pill--auto    { background: var(--success-subtle); color: #1A6E45; }
+    .pill--review  { background: var(--warning-subtle); color: #8B4A07; }
+    .pill--candidate{ background: var(--primary-subtle); color: #0F4F9E; }
+
+    /* Coverage table (Screen 3) */
+    .coverage {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+    }
+    .coverage__row {
+      display: grid;
+      grid-template-columns: 1fr auto 14px;
+      gap: 4px 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      align-items: start;
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+    .coverage__row:last-child { border-bottom: 0; }
+    .coverage__row:hover { background: var(--bg-row-hover); }
+    .coverage__row::after {
+      content: "";
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+      width: 14px;
+      height: 14px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8E99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'/></svg>");
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .coverage__row--expanded {
+      cursor: default;
+      background: var(--bg-row-hover);
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-md);
+      margin: 4px 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      grid-template-columns: none;
+      gap: 0;
+    }
+    .coverage__row--expanded:hover { background: var(--bg-row-hover); }
+    .coverage__row--expanded::after { display: none; }
+    .coverage__row--expanded .coverage__head {
+      display: grid;
+      grid-template-columns: 1fr auto 14px;
+      gap: 4px 12px;
+      padding: 10px 12px;
+      align-items: start;
+    }
+    .coverage__toggle {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-grid;
+      place-items: center;
+    }
+    .coverage__toggle svg {
+      display: block;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+    .coverage__toggle--open svg { transform: rotate(90deg); }
+    .coverage__toggle:hover { color: var(--text-emphasis); }
+    .coverage__detail {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .coverage__detail-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 12px 0 0;
+    }
+    .coverage__detail-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .coverage__detail-list li {
+      display: flex;
+      gap: 8px;
+      padding: 6px 8px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-sm);
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-primary);
+    }
+    .coverage__detail-list li code { color: var(--text-muted); }
+    .coverage__overrides {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .coverage__detail-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* Mapping-detail sub-section — appears when "Map to existing DS" is picked */
+    .mapping-detail {
+      margin-top: 4px;
+      padding: 12px;
+      background: var(--primary-subtle);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(19, 121, 243, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mapping-detail__header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .mapping-detail__icon {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--primary);
+      margin-top: 1px;
+    }
+    .mapping-detail__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0 0 2px;
+    }
+    .mapping-detail__body {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .mapping-detail .choice {
+      background: var(--bg-panel);
+    }
+
+    /* Nested variant — sub-options live inside the parent .choice card itself */
+    .choice > div { flex: 1; min-width: 0; }
+    .mapping-detail--nested {
+      margin-top: 12px;
+      margin-left: -26px;
+      margin-right: -26px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+    }
+    .mapping-detail--nested .coverage__overrides {
+      margin-top: 10px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      gap: 6px;
+    }
+    .mapping-detail--nested .choice {
+      background: var(--bg-panel);
+    }
+    .mapping-detail--nested .choice--selected {
+      background: var(--bg-panel);
+      border-color: var(--primary);
+    }
+
+    /* Toast list demo-excluded state */
+    .card__list-item--excluded .card__list-item-name {
+      color: var(--text-muted);
+      text-decoration: line-through;
+    }
+    .card__list-item--clickable {
+      cursor: pointer;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: var(--radius-sm);
+      transition: background 120ms ease;
+    }
+    .card__list-item--clickable:hover { background: var(--bg-row-hover); }
+
+    /* Inline dropdown (target page picker) */
+    .scene--dropdown .panel,
+    .scene--dropdown .panel__body { overflow: visible; }
+    .field-row--dropdown-host { position: relative; }
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      width: 232px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-modal);
+      padding: 4px;
+      z-index: 5;
+    }
+    .dropdown__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .dropdown__item:hover { background: var(--bg-row-hover); }
+    .dropdown__item--selected { color: var(--primary); font-weight: 500; }
+    .dropdown__check {
+      width: 14px;
+      height: 14px;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 14px;
+    }
+    .dropdown__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 6px;
+    }
+    .dropdown__item--create { color: var(--primary); }
+    .dropdown__create-form {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      align-items: center;
+    }
+    .dropdown__input {
+      flex: 1;
+      min-width: 0;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      font: 500 12px/1 var(--font);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(19, 121, 243, 0.18);
+    }
+    .dropdown__create-form .btn {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    /* Inline spinner inside button (processing state) */
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Field-row select pattern — clickable, opens a dropdown */
+    .field-row--select {
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+    .field-row--select:hover { background: var(--bg-row-hover); border-radius: var(--radius-sm); }
+    .field-row__value {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .field-row__caret {
+      display: inline-grid;
+      place-items: center;
+      color: var(--text-muted);
+    }
+    .coverage__name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .coverage__meta {
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+    .coverage__sub {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .coverage__sub--warn { color: #8B4A07; }
+    .coverage__action {
+      grid-row: 1;
+      grid-column: 2;
+      align-self: start;
+      display: flex;
+      align-items: center;
+    }
+    .candidates-card {
+      border: 1px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: var(--bg-elevated);
+    }
+    .candidates-card__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 6px;
+    }
+    .candidates-card__list {
+      margin: 0;
+      padding: 0 0 0 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .candidates-card__list li { padding: 2px 0; }
+
+    /* Stepper (Screen 4) */
+    .stepper {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stepper__item {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 10px;
+      padding: 8px 0;
+      align-items: center;
+    }
+    .stepper__dot {
+      grid-column: 1;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-default);
+      background: var(--bg-panel);
+      display: inline-grid;
+      place-items: center;
+      color: var(--bg-panel);
+      font-size: 11px;
+    }
+    .stepper__item--done .stepper__dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--bg-panel);
+    }
+    .stepper__item--active .stepper__dot {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .stepper__item--active .stepper__dot::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .stepper__name {
+      grid-column: 2;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .stepper__item--pending .stepper__name { color: var(--text-muted); font-weight: 400; }
+    .stepper__item--done .stepper__name { color: var(--text-secondary); }
+    .stepper__progress {
+      grid-column: 3;
+      font: 500 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .stepper__item--active .stepper__progress { color: var(--primary); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.85); }
+      50%      { opacity: 1;   transform: scale(1.1); }
+    }
+
+    .build-log {
+      background: #0E0F12;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font: 500 11px/1.65 var(--font-mono);
+      color: #ECEDF0;
+      max-height: 132px;
+      overflow-y: auto;
+    }
+    .build-log__line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .build-log__time { color: #8A8E99; margin-right: 8px; }
+    .build-log__line--ok span:nth-child(2) { color: var(--success); }
+    .build-log__line--running span:nth-child(2) { color: var(--primary); }
+
+    /* Done card (Screen 5) */
+    .done {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 24px 16px 8px;
+      gap: 12px;
+    }
+    .done__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--success-subtle);
+      color: var(--success);
+      display: grid;
+      place-items: center;
+    }
+    .done__title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+    }
+    .done__subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .done__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: left;
+    }
+    .done__list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+    .done__list-num { font: 500 11px/1.4 var(--font-mono); color: var(--text-primary); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      font: 600 13px/1 var(--font);
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+      white-space: nowrap;
+    }
+    .btn--primary {
+      background: var(--primary);
+      color: var(--text-on-primary);
+    }
+    .btn--primary:hover { background: var(--primary-hover); }
+    .btn--primary[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn--secondary {
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      border-color: var(--border-default);
+    }
+    .btn--secondary:hover { background: var(--bg-row-hover); border-color: var(--border-emphasis); }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .btn--ghost:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+    .btn--block { width: 100%; }
+    .btn--lg { height: 36px; padding: 0 16px; font-size: 13px; }
+    .btn--link {
+      background: transparent;
+      border: 0;
+      color: var(--primary);
+      font: 500 12px/1 var(--font);
+      padding: 0;
+      cursor: pointer;
+      height: auto;
+    }
+    .btn--link:hover { text-decoration: underline; }
+
+    /* Drop zone (Screen 1) */
+    .drop {
+      border: 1.5px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 24px 16px;
+      text-align: center;
+      background: var(--bg-elevated);
+    }
+    .drop__icon {
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 8px;
+      color: var(--text-muted);
+    }
+    .drop__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 2px;
+    }
+    .drop__subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0 0 12px;
+    }
+    .drop__divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 12px 0;
+    }
+    .drop__divider::before,
+    .drop__divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: var(--border-subtle);
+    }
+    textarea.code {
+      display: block;
+      width: 100%;
+      min-height: 156px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-primary);
+      resize: vertical;
+    }
+    textarea.code:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(19, 121, 243, 0.18);
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 0;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Modal overlay (gate confirm) */
+    .scene {
+      position: relative;
+      isolation: isolate;
+    }
+    .scene__overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-overlay);
+      border-radius: var(--radius-lg);
+      pointer-events: none;
+    }
+    .modal {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-modal);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+    }
+    .modal__body {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+    .modal__choices {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    .choice {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      align-items: flex-start;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .choice:hover {
+      background: var(--bg-row-hover);
+      border-color: var(--border-emphasis);
+    }
+    .choice--selected,
+    .choice--selected:hover {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .mapping-detail--nested .choice:hover {
+      background: var(--bg-row-hover);
+      border-color: var(--border-emphasis);
+    }
+    .mapping-detail--nested .choice--selected,
+    .mapping-detail--nested .choice--selected:hover {
+      background: var(--bg-panel);
+      border-color: var(--primary);
+    }
+    .choice__radio {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--border-emphasis);
+      border-radius: 50%;
+      margin-top: 2px;
+      position: relative;
+      background: var(--bg-panel);
+    }
+    .choice--selected > .choice__radio {
+      border-color: var(--primary);
+    }
+    .choice--selected > .choice__radio::after {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+    /* Right-side chevron — fold/unfold affordance on expandable choices */
+    .choice__chev {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--text-muted);
+      margin-top: 2px;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+    .choice--selected > .choice__chev {
+      color: var(--primary);
+      transform: rotate(180deg);
+    }
+    .choice__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 2px;
+    }
+    .choice__detail {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .modal__footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* Helper text & footnotes for the doc */
+    .strip__cell-note {
+      width: 360px;
+      padding: 0 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .legend {
+      margin-top: 64px;
+      padding: 24px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+    }
+    .legend__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0 0 12px;
+    }
+    .legend__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+    .legend__grid h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 0 0 6px;
+    }
+    .legend__grid p { margin: 0 0 8px; }
+
+    /* Inline icons (lucide-style strokes) */
+    svg.icon { display: block; }
+
+    /* ==========================================================
+       Plugin-mode overrides — running inside Figma's plugin iframe
+       Doc / strip / legend layout is suppressed; one panel at a time.
+       ========================================================== */
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+    }
+    body {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .doc {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      min-height: 0;
+    }
+    .doc__header,
+    .legend { display: none; }
+    .strip {
+      flex: 1;
+      flex-wrap: nowrap;
+      gap: 0;
+      padding: 12px;
+      overflow: auto;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    .strip__cell {
+      display: none;
+      width: 360px;
+      flex: 0 0 auto;
+    }
+    .strip__cell.is-active {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .strip__label,
+    .strip__cell-note { display: none; }
+
+    .plugin-nav {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-default);
+      font-size: 12px;
+    }
+    .plugin-nav__title {
+      flex: 1;
+      font-weight: 500;
+      color: var(--text-emphasis);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .plugin-nav__counter {
+      font: 500 11px var(--font-mono);
+      color: var(--text-muted);
+    }
+    .plugin-nav__btn {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-secondary);
+      display: inline-grid;
+      place-items: center;
+      transition: background 120ms ease;
+    }
+    .plugin-nav__btn:hover:not(:disabled) {
+      background: var(--bg-row-hover);
+      color: var(--text-emphasis);
+    }
+    .plugin-nav__btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin-nav">
+    <button class="plugin-nav__btn" id="prevBtn" disabled aria-label="Previous screen">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="plugin-nav__title" id="screenTitle">01 · Paste HTML</span>
+    <span class="plugin-nav__counter" id="screenCounter">1 / 10</span>
+    <button class="plugin-nav__btn" id="nextBtn" aria-label="Next screen">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="doc">
+    <header class="doc__header">
+      <p class="doc__eyebrow">v0.1 Plugin UI · Mockup</p>
+      <h1 class="doc__title">Figma-migrate — plugin panel</h1>
+      <p class="doc__subtitle">
+        Five core screens for the deterministic-only MVP, plus one gate-modal example.
+        Real data from the 2026-05-08 pre-flight on <code>cpp-setting-tab-mockup.html</code>.
+        Panel sized at 360 px to match Figma's plugin sandbox; styled in HiNAS Cloud / Day-mode tokens
+        because plugins render against Figma's own light surface, not Control's Dusk dark.
+      </p>
+      <div class="doc__meta">
+        <div class="doc__meta-item"><strong>Author:</strong> Avikus Product Design</div>
+        <div class="doc__meta-item"><strong>Drafted:</strong> 2026-05-08</div>
+        <div class="doc__meta-item"><strong>Spec:</strong> figma-migrate-plugin-mvp-spec.md</div>
+        <div class="doc__meta-item"><strong>Status:</strong> Draft for stakeholder review</div>
+      </div>
+    </header>
+
+    <section class="strip">
+
+      <!-- ============================================================
+           Screen 1 — Paste HTML (empty state)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">01</span><span class="strip__caption">Paste HTML</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Figma-migrate</h2>
+            <span class="panel__topbar-meta">v0.1</span>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Turn HTML mockups into design-system-backed Figma artboards.
+            </p>
+
+            <div class="drop">
+              <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                <path d="M12 17v-6M9 14l3-3 3 3"/>
+              </svg>
+              <p class="drop__title">Drop a .html file here</p>
+              <p class="drop__subtitle">or</p>
+              <button class="btn btn--secondary">Choose file</button>
+              <div class="drop__divider"><span>or paste HTML below</span></div>
+            </div>
+
+            <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>"></textarea>
+
+            <div class="field-row field-row--select">
+              <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+              <span class="field-row__value">
+                <span style="font:500 12px/1 var(--font-mono); color:var(--text-secondary);">Claude output</span>
+                <span class="field-row__caret">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </span>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Empty state. <strong>Parse</strong> stays disabled until HTML is pasted or a file is dropped. The
+          <strong>Target page</strong> row is itself a dropdown — clicking it opens the page picker (Screen 08).
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 2 — Parse preview
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">02</span><span class="strip__caption">Parse preview</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+            <span class="panel__topbar-meta">2129 lines</span>
+          </div>
+          <div class="panel__body">
+            <div class="banner banner--success">
+              <span class="banner__icon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="banner__body">DS unchanged since 2026-05-07.</span>
+            </div>
+
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Here's the structure parsed from your HTML. Click any section to inspect the items.
+            </p>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">9</span>
+                <span class="card__title">States</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Loading</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Empty</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Populated</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Select error</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · dirty</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · invalid</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · saving</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · save error</span><span class="card__list-item-meta">Page 2</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">4</span>
+                <span class="card__title">Modals</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openSelectConfirmModal()</span><span class="card__list-item-meta">Confirm</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openAddProfileModal()</span><span class="card__list-item-meta">input field</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openDeleteProfileModal()</span><span class="card__list-item-meta">Confirm</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openUnsavedGuardModal()</span><span class="card__list-item-meta">Confirm · 3-btn</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">4</span>
+                <span class="card__title">Toasts</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Profile saved</span><span class="card__list-item-meta">success</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Profile {id} deleted</span><span class="card__list-item-meta">success</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Row deleted (+ Undo)</span><span class="card__list-item-meta">failed-action</span></li>
+                  <li class="card__list-item card__list-item--clickable card__list-item--excluded">
+                    <span class="card__list-item-name">Dialog closed (demo)</span>
+                    <span class="pill pill--demo">Demo only</span>
+                  </li>
+                </ul>
+                <p style="margin:8px 0 0; font-size:11px; color:var(--text-muted); line-height:1.5;">
+                  Click any row to include or exclude. Demo-marker toasts (<code>(demo)</code>, <code>placeholder</code>, <code>todo</code>) auto-exclude by default.
+                </p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <span class="card__count">7</span>
+                <span class="card__title">DS components used</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary">Cancel</button>
+            <button class="btn btn--primary btn--lg">Review DS mapping →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Sections collapse. <strong>Demo-only toasts</strong> are auto-excluded; the visual state on the row says so.
+          Clicking any row opens the per-row override (same Option-C pattern as Screen 03's coverage table).
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 3 — DS coverage review
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">03</span><span class="strip__caption">DS coverage review</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+            <button class="panel__close" aria-label="Help">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">System states</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">renderLoadingPage, renderEmptyPage</span>
+                <span class="coverage__sub">Error variant unused — banners replace it.</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Modal</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+                <span class="coverage__sub">1 demo-only excluded from screen 2.</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">input</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.cell-input, .modal__field-input</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+                <span class="coverage__sub coverage__sub--warn">40 px buttons don't match DS sizes 36 or 48.</span>
+              </div>
+            </div>
+
+            <div class="candidates-card">
+              <h3 class="candidates-card__title">
+                <span class="pill pill--candidate">DS candidates</span>
+                <span>9 structures not in the DS</span>
+              </h3>
+              <ul class="candidates-card__list">
+                <li>Profile row — Selected (check + Details)</li>
+                <li>Profile row — Other (Details on hover)</li>
+                <li>Profile row — + Add Profile (dashed)</li>
+                <li>Inline banner (red error · blue info)</li>
+                <li>Editable data table with cell error tooltip</li>
+                <li>Insert-row pill (between rows + bottom)</li>
+                <li>Chart card</li>
+                <li>Editor footer bar (3-button spread)</li>
+                <li>40 px Button (between DS sizes 36 and 48)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The central review gate. Rows are individually clickable for per-row drill-down (see Screen 07 for the
+          expanded state). Two warnings the parser can detect — 3-button modal, Button size mismatch — surface
+          inline rather than mid-build.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 4 — Build progress
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">04</span><span class="strip__caption">Build progress</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Building artboards…</h2>
+            <span class="panel__topbar-meta">5 / 17</span>
+          </div>
+          <div class="panel__body">
+            <ol class="stepper">
+              <li class="stepper__item stepper__item--done">
+                <span class="stepper__dot">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="stepper__name">Pre-flight · DS sync, parse, coverage</span>
+                <span class="stepper__progress">3.2 s</span>
+              </li>
+              <li class="stepper__item stepper__item--done">
+                <span class="stepper__dot">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="stepper__name">Defaults · placement, naming</span>
+                <span class="stepper__progress">0.4 s</span>
+              </li>
+              <li class="stepper__item stepper__item--active">
+                <span class="stepper__dot"></span>
+                <span class="stepper__name">Building artboards</span>
+                <span class="stepper__progress">5 / 17</span>
+              </li>
+              <li class="stepper__item stepper__item--pending">
+                <span class="stepper__dot"></span>
+                <span class="stepper__name">DS Candidate band</span>
+                <span class="stepper__progress">9 items</span>
+              </li>
+            </ol>
+
+            <div class="build-log">
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:08</span><span>✓</span> Setting · CCP · Loading</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:11</span><span>✓</span> Setting · CCP · Empty</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:14</span><span>✓</span> Setting · CCP · Populated</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:18</span><span>✓</span> Setting · CCP · Select error</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:21</span><span>✓</span> Setting · CCP · Edit</div>
+              <div class="build-log__line build-log__line--running"><span class="build-log__time">14:23:24</span><span>⏳</span> Setting · CCP · Edit · dirty</div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary">Cancel</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The stepper shows phase-only; the log scroll lists individual artboards as they land. If a gate fires
+          (DS conflict), it overlays this screen — see screen 06 — without aborting the run.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 5 — Done
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">05</span><span class="strip__caption">Done</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Done</h2>
+            <span class="panel__topbar-meta">52 s</span>
+          </div>
+          <div class="panel__body">
+            <div class="done">
+              <div class="done__icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <h3 class="done__title">Built 17 artboards</h3>
+              <p class="done__subtitle">on <strong style="color:var(--text-secondary);">Claude output</strong></p>
+            </div>
+
+            <ul class="done__list">
+              <li><span>System-state screens</span><span class="done__list-num">4</span></li>
+              <li><span>Modal / state screens</span><span class="done__list-num">9</span></li>
+              <li><span>Toast screens</span><span class="done__list-num">4</span></li>
+              <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
+              <li><span>DS Suggestions</span><span class="done__list-num">0</span></li>
+            </ul>
+
+            <button class="btn btn--primary btn--lg btn--block">Show on canvas</button>
+            <button class="btn btn--ghost btn--block">Run again with new HTML</button>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--link">Copy summary</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          <strong>View band</strong> jumps the canvas to the band origin. <strong>Run again</strong> resets
+          the panel to screen 1, keeping the same target page selection.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 6 — DS Conflict gate (modal overlay on Screen 4)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">06</span><span class="strip__caption">Gate · DS conflict</span></div>
+        <div class="scene">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Building artboards…</h2>
+              <span class="panel__topbar-meta">9 / 17</span>
+            </div>
+            <div class="panel__body" style="opacity:0.55;">
+              <ol class="stepper">
+                <li class="stepper__item stepper__item--done">
+                  <span class="stepper__dot"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="stepper__name">Pre-flight</span>
+                  <span class="stepper__progress">3.2 s</span>
+                </li>
+                <li class="stepper__item stepper__item--done">
+                  <span class="stepper__dot"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="stepper__name">Defaults</span>
+                  <span class="stepper__progress">0.4 s</span>
+                </li>
+                <li class="stepper__item stepper__item--active">
+                  <span class="stepper__dot"></span>
+                  <span class="stepper__name">Building artboards</span>
+                  <span class="stepper__progress">9 / 17</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+          <div class="scene__overlay"></div>
+          <div class="modal">
+            <h3 class="modal__title">DS conflict — Modal master</h3>
+            <p class="modal__body">
+              <code>Modal/type=input&nbsp;field</code> renders with a light fill in this dark-themed file.
+              The page may not have the DS dark mode set, or the master may be missing a dark mode value.
+            </p>
+            <div class="modal__choices">
+              <div class="choice choice--selected">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Set page variable mode to dark</p>
+                  <p class="choice__detail">Recommended. Fixes every Modal instance on this page in one move.</p>
+                </div>
+              </div>
+              <div class="choice">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Override fill on this instance only</p>
+                  <p class="choice__detail">Quick fix; creates one-off drift. Logged for the DS team to review.</p>
+                </div>
+              </div>
+              <div class="choice">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Skip this artboard</p>
+                  <p class="choice__detail">Resume the rest of the build; come back to this one later.</p>
+                </div>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button class="btn btn--ghost">Pause build</button>
+              <button class="btn btn--primary">Apply & continue</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Gate modals overlay the active screen rather than opening as separate routes. The build stays
+          paused but in-context — the user sees what's behind the question, not a blank confirmation.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 7 — Edit mapping row expanded (Option C drill-down)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">07</span><span class="strip__caption">Row expanded · edit mapping</span></div>
+        <div class="panel panel--tall" style="min-height: 1000px;">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">System states</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">renderLoadingPage, renderEmptyPage</span>
+              </div>
+
+              <!-- Expanded row (Modal) -->
+              <div class="coverage__row coverage__row--expanded">
+                <div class="coverage__head">
+                  <span class="coverage__name">Modal</span>
+                  <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                  <button class="coverage__toggle coverage__toggle--open" aria-label="Collapse">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                  <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+                </div>
+                <div class="coverage__detail">
+                  <p class="coverage__detail-section-label">HTML modals mapping here</p>
+                  <ul class="coverage__detail-list">
+                    <li><span>openSelectConfirmModal()</span><code>→ type=Confirm</code></li>
+                    <li><span>openAddProfileModal()</span><code>→ type=input field</code></li>
+                    <li><span>openDeleteProfileModal()</span><code>→ type=Confirm</code></li>
+                    <li><span>openUnsavedGuardModal()</span><code>→ type=Confirm · 3-btn</code></li>
+                  </ul>
+
+                  <p class="coverage__detail-section-label">Override</p>
+                  <div class="coverage__overrides">
+                    <div class="choice choice--selected">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Map to existing DS</p>
+                        <p class="choice__detail">Default. Reshape this pattern to fit what the DS already supports. Build matches the DS; some HTML structure may change. (Only the flagged instances reshape — compliant instances build normally.)</p>
+
+                        <!-- Sub-section nested inside the selected choice -->
+                        <div class="mapping-detail mapping-detail--nested">
+                          <div class="mapping-detail__header">
+                            <span class="mapping-detail__icon">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </span>
+                            <div>
+                              <p class="mapping-detail__title">Unsaved guard modal: 3 buttons, DS Modal/Confirm: 2 buttons</p>
+                              <p class="mapping-detail__body">How should we reshape this modal to fit the DS?</p>
+                            </div>
+                          </div>
+                          <div class="coverage__overrides">
+                            <div class="choice choice--selected">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Save + Cancel · drop Discard</p>
+                                <p class="choice__detail">Removes the destructive Discard action. Users dismiss the modal with Cancel.</p>
+                              </div>
+                            </div>
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Save + Discard · drop Cancel</p>
+                                <p class="choice__detail">No explicit cancel button; users dismiss via the modal's × in the corner.</p>
+                              </div>
+                            </div>
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Two separate modals</p>
+                                <p class="choice__detail">Build two artboards: one Save/Cancel modal, one Discard/Cancel modal.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Create new UI</p>
+                        <p class="choice__detail">Build the flagged instances as a new UI pattern, auto-proposed as a DS Suggestion. You'll pick whether to build from scratch or extend an existing DS component.</p>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Skip in build</p>
+                        <p class="choice__detail">Don't generate artboards for the flagged instances.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="coverage__detail-actions">
+                    <button class="btn btn--ghost">Cancel</button>
+                    <button class="btn btn--primary">Apply</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">input</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.cell-input, .modal__field-input</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Clicking any row opens it inline (Option C). Three override choices: <strong>Map to existing DS</strong> (default),
+          <strong>Create new UI</strong>, or <strong>Skip in build</strong>. The selected choice <em>expands</em> to show
+          its sub-options nested inside (here: which button to drop from the unsaved-guard modal). Unselected choices
+          stay collapsed. Picking Create new UI collapses Map to existing DS and expands Create new UI with its build-approach
+          picker (Screen 11). All choices apply only to the flagged instances; compliant ones build normally.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 8 — Target page picker dropdown open
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">08</span><span class="strip__caption">Target page picker</span></div>
+        <div class="scene scene--dropdown">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Figma-migrate</h2>
+              <span class="panel__topbar-meta">v0.1</span>
+            </div>
+            <div class="panel__body">
+              <p style="margin:0; font-size:12px; color:var(--text-muted);">
+                Turn HTML mockups into design-system-backed Figma artboards.
+              </p>
+
+              <div class="drop">
+                <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                  <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                  <path d="M12 17v-6M9 14l3-3 3 3"/>
+                </svg>
+                <p class="drop__title">Drop a .html file here</p>
+                <p class="drop__subtitle">or</p>
+                <button class="btn btn--secondary">Choose file</button>
+              </div>
+
+              <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>" style="min-height:96px;"></textarea>
+
+              <div class="field-row field-row--select field-row--dropdown-host" style="background: var(--primary-subtle); border-radius: var(--radius-sm); padding: 8px 10px; border-top: 0;">
+                <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+                <span class="field-row__value">
+                  <span style="font:500 12px/1 var(--font-mono); color:var(--primary);">Claude output</span>
+                  <span class="field-row__caret" style="color:var(--primary);">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </span>
+                <div class="dropdown">
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Design system
+                  </div>
+                  <div class="dropdown__item dropdown__item--selected">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    Claude output
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Result
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Page 1
+                  </div>
+                  <div class="dropdown__divider"></div>
+                  <div class="dropdown__item dropdown__item--create">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </span>
+                    Create new page…
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel__footer panel__footer--right">
+              <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Inline dropdown over the field, anchored under it. Lists every page in the current Figma file via
+          <code>figma.root.children</code>; current target shows a blue check. Last item creates a new page,
+          prompts for a name inline (Screen 09), and selects it. Persists per-file via <code>figma.clientStorage</code>.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 9 — Create new page inline input
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">09</span><span class="strip__caption">Create new page · inline</span></div>
+        <div class="scene scene--dropdown">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Figma-migrate</h2>
+              <span class="panel__topbar-meta">v0.1</span>
+            </div>
+            <div class="panel__body">
+              <p style="margin:0; font-size:12px; color:var(--text-muted);">
+                Turn HTML mockups into design-system-backed Figma artboards.
+              </p>
+
+              <div class="drop">
+                <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                  <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                  <path d="M12 17v-6M9 14l3-3 3 3"/>
+                </svg>
+                <p class="drop__title">Drop a .html file here</p>
+                <p class="drop__subtitle">or</p>
+                <button class="btn btn--secondary">Choose file</button>
+              </div>
+
+              <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>" style="min-height:96px;"></textarea>
+
+              <div class="field-row field-row--select field-row--dropdown-host" style="background: var(--primary-subtle); border-radius: var(--radius-sm); padding: 8px 10px; border-top: 0;">
+                <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+                <span class="field-row__value">
+                  <span style="font:500 12px/1 var(--font-mono); color:var(--primary);">Claude output</span>
+                  <span class="field-row__caret" style="color:var(--primary);">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </span>
+                <div class="dropdown">
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Design system
+                  </div>
+                  <div class="dropdown__item dropdown__item--selected">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    Claude output
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Result
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Page 1
+                  </div>
+                  <div class="dropdown__divider"></div>
+                  <div class="dropdown__create-form">
+                    <input type="text" class="dropdown__input" value="figma-migrate output">
+                    <button class="btn btn--primary">Create</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel__footer panel__footer--right">
+              <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          After clicking <strong>+ Create new page…</strong> the row morphs into a focused input pre-filled with a
+          sensible default. <kbd>Enter</kbd> or the inline <strong>Create</strong> button commits — runs
+          <code>figma.createPage(name)</code>, sets it as the target, closes the dropdown. <kbd>Esc</kbd> cancels back
+          to the menu.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 10 — Build button in processing state
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">10</span><span class="strip__caption">Build · processing transition</span></div>
+        <div class="panel panel--tall" style="min-height: 760px;">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back" disabled style="opacity:0.4; cursor:not-allowed;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body" style="opacity:0.5;">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">System states</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">renderLoadingPage, renderEmptyPage</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Modal</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">input</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.cell-input, .modal__field-input</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg" disabled>
+              <span class="btn-spinner"></span>
+              <span>Preparing build…</span>
+            </button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The moment after <strong>Build</strong> is clicked. Button switches to a disabled spinner+label state while
+          the plugin runs pre-build checks (DS re-sync, font preload, component imports — typically 1–2 s). Body
+          fades to ~50% to signal the panel is transitioning. Then Screen 04's stepper takes over and the body is
+          replaced.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 11 — Create new UI · build approach
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">11</span><span class="strip__caption">Create new UI · build approach</span></div>
+        <div class="panel panel--tall" style="min-height: 1200px;">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+
+              <!-- Expanded row (Modal) with "Create new UI" selected -->
+              <div class="coverage__row coverage__row--expanded">
+                <div class="coverage__head">
+                  <span class="coverage__name">Modal</span>
+                  <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                  <button class="coverage__toggle coverage__toggle--open" aria-label="Collapse">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                  <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+                </div>
+                <div class="coverage__detail">
+                  <p class="coverage__detail-section-label">Override</p>
+                  <div class="coverage__overrides">
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Map to existing DS</p>
+                        <p class="choice__detail">Default. Reshape this pattern to fit what the DS already supports. Build matches the DS; some HTML structure may change.</p>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice choice--selected">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Create new UI</p>
+                        <p class="choice__detail">Build the flagged instances as a new UI pattern, auto-proposed as a DS Suggestion. You'll pick whether to build from scratch or extend an existing DS component.</p>
+
+                        <!-- Sub-section nested inside the selected choice -->
+                        <div class="mapping-detail mapping-detail--nested">
+                          <div class="mapping-detail__header">
+                            <span class="mapping-detail__icon">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </span>
+                            <div>
+                              <p class="mapping-detail__title">Build approach for the new UI</p>
+                              <p class="mapping-detail__body">Should we build from scratch, or extend an existing DS component?</p>
+                            </div>
+                          </div>
+                          <div class="coverage__overrides">
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">From scratch</p>
+                                <p class="choice__detail">No DS components used. Build as a standalone artboard. Best when the HTML pattern doesn't resemble anything in the DS.</p>
+                              </div>
+                            </div>
+                            <div class="choice choice--selected">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Extend existing DS</p>
+                                <p class="choice__detail">Use a DS component as the base, hide non-applicable children, overlay the new pattern on top. E.g., a 3-button footer overlayed on Modal/Confirm's dual-CTA layout.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Skip in build</p>
+                        <p class="choice__detail">Don't generate artboards for the flagged instances.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="coverage__detail-actions">
+                    <button class="btn btn--ghost">Cancel</button>
+                    <button class="btn btn--primary">Apply</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          When the user picks <strong>Create new UI</strong>, the mapping-detail sub-section swaps from "how to
+          reshape" (Screen 07) to "build approach" (shown here). Two sub-modes: <strong>From scratch</strong> (no DS used)
+          or <strong>Extend existing DS</strong> (the example pattern — overlay a 3-button footer onto Modal/Confirm,
+          hiding the dual-CTA children). Either way, the resulting new UI is auto-proposed as a DS Suggestion.
+        </p>
+      </div>
+
+    </section>
+
+    <script>
+      (function () {
+        var cells = Array.prototype.slice.call(document.querySelectorAll(".strip__cell"));
+        var titleEl = document.getElementById("screenTitle");
+        var counterEl = document.getElementById("screenCounter");
+        var prevBtn = document.getElementById("prevBtn");
+        var nextBtn = document.getElementById("nextBtn");
+        var total = cells.length;
+        var current = 0;
+        var titles = cells.map(function (c) {
+          var num = (c.querySelector(".strip__num") || {}).textContent || "";
+          var cap = (c.querySelector(".strip__caption") || {}).textContent || "";
+          return (num.trim() + " · " + cap.trim()).trim();
+        });
+
+        function show(n) {
+          if (n < 0 || n >= total) return;
+          for (var i = 0; i < cells.length; i++) cells[i].classList.remove("is-active");
+          cells[n].classList.add("is-active");
+          titleEl.textContent = titles[n];
+          counterEl.textContent = (n + 1) + " / " + total;
+          prevBtn.disabled = n === 0;
+          nextBtn.disabled = n === total - 1;
+          current = n;
+        }
+
+        prevBtn.addEventListener("click", function () { show(current - 1); });
+        nextBtn.addEventListener("click", function () { show(current + 1); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowLeft") show(current - 1);
+          if (e.key === "ArrowRight") show(current + 1);
+        });
+
+        show(0);
+      })();
+    </script>
+
+    <!-- ============================================================
+         Legend / design notes (hidden in plugin preview mode)
+         ============================================================ -->
+    <section class="legend">
+      <h2 class="legend__title">Design notes</h2>
+      <div class="legend__grid">
+        <div>
+          <h3>Why light theme</h3>
+          <p>Plugin panels render inside Figma's own UI, which is light-by-default. Mirroring HiNAS Cloud / Day-mode
+            tokens keeps the panel from looking out of place against Figma's chrome. The HiNAS Blue (<code>#1379F3</code>)
+            primary keeps the panel recognizably ours, not generic-Figma.</p>
+        </div>
+        <div>
+          <h3>Why 360 px wide</h3>
+          <p>Figma plugin panels have a sane max around 400 px before they crowd the canvas. 360 px gives a comfortable
+            two-column feel for the coverage table without forcing horizontal scroll inside the panel.</p>
+        </div>
+        <div>
+          <h3>Why the coverage review is a separate screen</h3>
+          <p>It's the single highest-leverage UX upgrade over the CLI. In the slash command, this table prints to
+            terminal mid-run. Here, the user can edit a coverage decision <em>before</em> any artboard is created.
+            Most runs spend more time on this screen than any other — that's the point.</p>
+        </div>
+        <div>
+          <h3>Why gates overlay rather than route</h3>
+          <p>The DS-conflict modal preserves the build context behind it. The user can see what step we're on, what's
+            already built, and what the question affects. A separate routed screen would lose that context and feel
+            more like an error than a deliberate confirmation.</p>
+        </div>
+        <div>
+          <h3>What's missing on purpose</h3>
+          <p>No render preview of the artboards before build (cost &gt; value in v0.1). No re-run diff (v0.3). No
+            settings panel beyond target page (v0.2 adds API key for Claude judgment steps). No multi-DS picker (v0.4).</p>
+        </div>
+        <div>
+          <h3>Resolved this round</h3>
+          <p>Row interaction → Option C, per-row drill-down (Screen 07).
+            Target page → inline dropdown anchored under the field (Screen 08, 09).
+            Create new page → inline input, no separate modal (Screen 09).
+            Build click → button shows processing state, then panel transitions to Screen 04 (Screen 10).
+            Field affordance → Screen 01 dropdown caret matches Screen 08, no more "Edit" text link.</p>
+        </div>
+        <div>
+          <h3>Still open</h3>
+          <p>Done screen: do we want a collapsible artboard list under the four-line summary, or is the summary enough?
+            Jargon sweep: "DS Candidate", "Pre-flight", "Defaults" still use internal vocabulary —
+            worth a one-pass cleanup before copy is locked.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

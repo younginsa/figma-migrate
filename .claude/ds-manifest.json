@@ -1,0 +1,86 @@
+{
+  "lastSyncedAt": "2026-05-07T06:41:50.904Z",
+  "fileKey": "iSBKt82nnX2Uebb1hH4AfE",
+  "pageName": "Design system",
+  "sets": [
+    {
+      "name": "Button",
+      "type": "COMPONENT_SET",
+      "key": "7c92ef0f897733a3d7404896249e5e87d3cb90ae",
+      "variants": [
+        "type=Default, state=primary-active, size=48",
+        "type=Default, state=primary-active, size=36",
+        "type=Primary, state=Disabled, size=48",
+        "type=Primary, state=Disabled, size=36",
+        "type=Default, state=secondary-active, size=48",
+        "type=Default, state=secondary-active, size=36",
+        "type=Secondary, state=Disabled, size=48",
+        "type=Secondary, state=Disabled, size=36"
+      ]
+    },
+    {
+      "name": "Modal",
+      "type": "COMPONENT_SET",
+      "key": "62cf4b4cf7ca1f217b6f11f1aa333f23a5019e14",
+      "variants": [
+        "type=Confirm",
+        "type=file select",
+        "type=input field"
+      ]
+    },
+    {
+      "name": "System states",
+      "type": "COMPONENT_SET",
+      "key": "8c2a8ec7fa065c3350a34754dd2dd2060260aeed",
+      "variants": [
+        "type=Loading state",
+        "type=Empty state",
+        "type=Error state"
+      ]
+    },
+    {
+      "name": "Toast",
+      "type": "COMPONENT_SET",
+      "key": "126b94d2d5cf246c6deef2ad44c8ae5d6aaa179c",
+      "variants": [
+        "width=full, type=processing",
+        "width=compact, type=processing",
+        "width=full, type=success",
+        "width=compact, type=success",
+        "width=full, type=failed",
+        "width=compact, type=failed",
+        "width=full, type=failed-action",
+        "width=compact, type=failed-action",
+        "width=full, type=failed 2",
+        "width=compact, type=failed 2",
+        "width=full, type=failed 2-action",
+        "width=compact, type=failed 2-action"
+      ]
+    },
+    {
+      "name": "input",
+      "type": "COMPONENT_SET",
+      "key": "9ed9c5f4c6180f1286c442449ddc14cb95ca50f3",
+      "variants": [
+        "Property 1=default",
+        "Property 1=focused",
+        "Property 1=error"
+      ]
+    },
+    {
+      "name": "Setting dialog",
+      "type": "COMPONENT",
+      "key": "5ee6102f66df68ece4e12644c1319e1dff3fba38",
+      "variants": []
+    },
+    {
+      "name": "tab",
+      "type": "COMPONENT_SET",
+      "key": "a053ad04e27497ae1e036f76c0e942401cf0dabd",
+      "variants": [
+        "state=default",
+        "state=selected"
+      ]
+    }
+  ]
+}

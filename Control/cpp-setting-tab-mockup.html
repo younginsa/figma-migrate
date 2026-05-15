@@ -1,0 +1,2129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Combinator Curve Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <style>
+    /* ==========================================================
+       Token layer — sourced from Figma HiNAS Control design system
+       ========================================================== */
+    :root {
+      /* Surfaces (Dusk mode) */
+      --color-bg-overlay: rgba(0, 0, 0, 0.64);
+      --color-bg-base: #0E0F12;           /* Gray/50 */
+      --color-bg-surface: #15161A;        /* Gray/100 */
+      --color-bg-raised: #1B1C21;         /* Gray/200 */
+      --color-bg-raised-hover: #23252B;   /* Gray/300 */
+      --color-bg-input: #23252B;          /* Gray/300 */
+      --color-bg-input-hover: #3C3E47;    /* Gray/400 */
+
+      /* Borders */
+      --color-border-subtle: rgba(255, 255, 255, 0.08);
+      --color-border-default: #3C3E47;    /* Gray/400 */
+      --color-border-emphasis: #5A5D67;   /* Gray/500 */
+
+      /* Text */
+      --color-text-muted: #858998;        /* Gray/600 */
+      --color-text-secondary: #B0B3BF;    /* Gray/700 */
+      --color-text-primary: #D0D2D9;      /* Gray/800 */
+      --color-text-emphasis: #ECEDF0;     /* Gray/900 */
+      --color-text-on-primary: #0E0F12;   /* Gray/50 — Figma places dark text on Blue/500 fills */
+
+      /* White-overlay tokens (Figma "White/N" scale) */
+      --color-white-4: rgba(255, 255, 255, 0.04);
+      --color-white-6: rgba(255, 255, 255, 0.06);
+      --color-white-8: rgba(255, 255, 255, 0.08);
+
+      /* Brand / semantic */
+      --color-primary: #1379F3;           /* Blue/400 */
+      --color-primary-hover: #348FF4;     /* Blue/500 */
+      --color-primary-subtle: #004DA3;    /* Blue/100 */
+      --color-danger: #FF4141;            /* Red/500 */
+      --color-danger-hover: #EA2929;      /* Red/400 */
+      --color-danger-subtle: #A50000;     /* Red/100 */
+      --color-warning: #F4810C;           /* Orange/600 */
+      --color-success: #2BB46D;           /* Green/600 */
+
+      /* Typography — sourced 1:1 from Figma (HiNAS Control "1M/" scale).
+         Figma "Semi Bold" for Inter is weight 550 (not 600). */
+      --font-family: "Inter", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      --text-body-2-b: 500 20px/28px var(--font-family);   /* 1M/Body 2 Bold — page titles */
+      --text-body-2:   400 20px/28px var(--font-family);   /* regular 20/28 (not in Figma; kept for flexibility) */
+      --text-body-1-b: 550 18px/24px var(--font-family);   /* 1M/Body 1 Bold */
+      --text-body-1:   400 18px/24px var(--font-family);   /* 1M/Body 1 */
+      --text-caption-b:500 16px/24px var(--font-family);   /* 1M/Caption Bold */
+      --text-caption:  400 16px/24px var(--font-family);   /* 1M/Caption */
+
+      /* Spacing (4px grid) */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 32px;
+      --space-3xl: 48px;
+
+      /* Radii */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+
+      /* Shadows */
+      --shadow-dialog: 0 8px 16px rgba(0, 0, 0, 0.24);
+      --shadow-modal:  0 2px 8px rgba(0, 0, 0, 0.4), 0 9px 20px rgba(0, 0, 0, 0.4);
+      --shadow-toast:  0 4px 12px rgba(0, 0, 0, 0.32);
+
+      /* Motion */
+      --transition-fast: 120ms ease;
+      --transition-default: 200ms ease;
+
+      /* Dialog sizing */
+      --dialog-max-width: 1120px;
+      --dialog-min-height: 680px;
+    }
+
+    /* ==========================================================
+       Base / reset
+       ========================================================== */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      color: var(--color-text-primary);
+      background: var(--color-bg-base);
+      display: grid;
+      place-items: center;
+      padding: var(--space-xl);
+      min-height: 100vh;
+    }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+    select { font-family: inherit; }
+    ::selection { background: var(--color-primary); color: var(--color-text-on-primary); }
+
+    /* ==========================================================
+       Dialog shell
+       ========================================================== */
+    .dialog {
+      width: min(var(--dialog-max-width), 96vw);
+      min-height: var(--dialog-min-height);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-dialog);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ==========================================================
+       Tab bar
+       ========================================================== */
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-sm) var(--space-lg) 0;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+    .tab {
+      position: relative;
+      background: transparent;
+      border: 0;
+      color: var(--color-text-muted);
+      font: var(--text-caption-b);
+      padding: var(--space-md) var(--space-lg);
+      cursor: pointer;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+    .tab:hover { color: var(--color-text-secondary); background: rgba(255,255,255,0.04); }
+    .tab.is-active {
+      color: var(--color-text-emphasis);
+    }
+    .tab.is-active::after {
+      content: "";
+      position: absolute;
+      left: var(--space-lg);
+      right: var(--space-lg);
+      bottom: -1px;
+      height: 2px;
+      background: var(--color-primary);
+    }
+    .tab-close {
+      margin-left: auto;
+      background: transparent;
+      border: 0;
+      color: var(--color-text-muted);
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+    .tab-close:hover { color: var(--color-text-emphasis); background: rgba(255,255,255,0.06); }
+
+    /* ==========================================================
+       Panel (each tab's content area)
+       ========================================================== */
+    .panels { flex: 1; display: flex; flex-direction: column; }
+    .panel { display: none; flex: 1; flex-direction: column; padding: var(--space-xl); }
+    .panel.is-active { display: flex; }
+    .panel-placeholder {
+      color: var(--color-text-muted);
+      border: 1px dashed var(--color-border-subtle);
+      border-radius: var(--radius-sm);
+      padding: var(--space-lg);
+      font: var(--text-caption);
+    }
+
+    /* ==========================================================
+       Page header (shared Page 1 + Page 2)
+       ========================================================== */
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xs);
+      margin-bottom: var(--space-lg);
+    }
+    .page-header__title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+    .page-header__title {
+      margin: 0;
+      font: var(--text-body-2-b);
+      color: var(--color-text-emphasis);
+    }
+    .page-header__back {
+      background: transparent;
+      border: 0;
+      color: var(--color-text-primary);
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+    .page-header__back:hover { color: var(--color-text-emphasis); background: rgba(255,255,255,0.06); }
+    .page-header__subtitle {
+      margin: 0;
+      font: var(--text-caption);
+      color: var(--color-text-muted);
+    }
+
+    /* ==========================================================
+       Buttons
+       ========================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      height: 40px;
+      min-width: 96px;                       /* baseline so equal-context CTAs render the same width */
+      padding: 0 var(--space-lg);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      font: var(--text-caption-b);
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
+      white-space: nowrap;
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(19, 121, 243, 0.4);
+    }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .btn--primary {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+    }
+    .btn--primary:hover:not([disabled]) { background: var(--color-primary-hover); }
+
+    .btn--secondary {
+      background: var(--color-bg-raised);
+      color: var(--color-text-primary);
+      border-color: var(--color-border-default);
+    }
+    .btn--secondary:hover:not([disabled]) {
+      background: var(--color-bg-raised-hover);
+      color: var(--color-text-emphasis);
+      border-color: var(--color-border-emphasis);
+    }
+
+    .btn--ghost {
+      background: transparent;
+      color: var(--color-text-primary);
+      border-color: var(--color-border-subtle);
+    }
+    .btn--ghost:hover:not([disabled]) {
+      background: rgba(255,255,255,0.04);
+      color: var(--color-text-emphasis);
+    }
+
+    /* Destructive intent uses secondary/neutral styling (no red).
+       The verb in the label ("Delete", "Discard") carries the signal. */
+    .btn--danger,
+    .btn--danger-solid {
+      background: var(--color-bg-raised);
+      color: var(--color-text-primary);
+      border-color: var(--color-border-default);
+    }
+    .btn--danger:hover:not([disabled]),
+    .btn--danger-solid:hover:not([disabled]) {
+      background: var(--color-bg-raised-hover);
+      color: var(--color-text-emphasis);
+      border-color: var(--color-border-emphasis);
+    }
+
+    .btn--sm { height: 32px; min-width: 0; padding: 0 var(--space-md); font: var(--text-caption); }
+    .btn__icon { display: inline-grid; place-items: center; line-height: 0; }
+    .btn__icon svg { display: block; }
+
+    /* ----------------------------------------------------------------
+       48_Fix_BTN (Figma): the page-level/footer CTA component.
+       Spec: 48px tall, 160px min-width, 3px radius, 20px H padding,
+       Inter Semi Bold (weight 550) 18/24.
+       Variants re-skin background/border per Figma 48_Fix_BTN_Primary/Sub.
+       ---------------------------------------------------------------- */
+    .btn--lg {
+      height: 48px;
+      min-width: 160px;
+      padding: 0 20px;
+      border-radius: 3px;
+      font: var(--text-body-1-b);
+    }
+    .btn--lg.btn--primary {
+      background: var(--color-primary-hover);                /* Blue/500 = #348FF4 */
+      color: var(--color-text-on-primary);                   /* Gray/50 */
+      border-color: var(--color-white-6);
+    }
+    .btn--lg.btn--primary:hover:not([disabled]) { background: var(--color-primary); }
+    .btn--lg.btn--secondary {
+      background: var(--color-white-4);
+      color: var(--color-text-emphasis);                     /* Gray/900 */
+      border-color: var(--color-white-8);
+    }
+    .btn--lg.btn--secondary:hover:not([disabled]) {
+      background: var(--color-white-8);
+      color: var(--color-text-emphasis);
+      border-color: var(--color-white-8);
+    }
+    /* Destructive CTA on large footer buttons adopts the "Sub" neutral skin.
+       Same white-overlay chrome as btn--lg.btn--secondary. */
+    .btn--lg.btn--danger,
+    .btn--lg.btn--danger-solid {
+      background: var(--color-white-4);
+      color: var(--color-text-emphasis);
+      border-color: var(--color-white-8);
+    }
+    .btn--lg.btn--danger:hover:not([disabled]),
+    .btn--lg.btn--danger-solid:hover:not([disabled]) {
+      background: var(--color-white-8);
+      color: var(--color-text-emphasis);
+      border-color: var(--color-white-8);
+    }
+
+    .btn--icon-only { width: 32px; padding: 0; }
+
+    /* Inline spinner for saving state */
+    .btn-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.32);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    /* ==========================================================
+       Page 1 — Profile list
+       ========================================================== */
+    .section-label {
+      font: var(--text-body-1-b);
+      color: var(--color-text-emphasis);
+      margin: var(--space-lg) 0 var(--space-sm);
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* Section header with title on left + action CTA on right end. */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      margin: var(--space-lg) 0 var(--space-sm);
+    }
+    .section-header > .section-label { margin: 0; }
+
+    /* ----------------------------------------------------------------
+       Profile list — individual boxed rows, no outer container.
+       Every variant (selected / other / add) shares the same height (56px)
+       and the same 3-column grid (24px icon │ 1fr name │ auto action).
+       ---------------------------------------------------------------- */
+    .profile-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .profile-item {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      align-items: center;
+      gap: var(--space-md);
+      height: 56px;
+      padding: 0 var(--space-lg);
+      background: var(--color-bg-raised);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      cursor: default;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+      position: relative;
+    }
+    .profile-item--selected {
+      border-color: var(--color-primary-subtle);
+    }
+    .profile-item--selectable { cursor: pointer; }
+    .profile-item--selectable:hover {
+      background: var(--color-bg-raised-hover);
+      border-color: var(--color-border-default);
+    }
+    .profile-item__check {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      color: var(--color-text-primary);
+    }
+    .profile-item__name {
+      font: var(--text-body-1);
+      color: var(--color-text-primary);
+    }
+    .profile-item--selected .profile-item__name {
+      font: var(--text-body-1-b);
+      color: var(--color-text-emphasis);
+    }
+    .profile-item__action {
+      display: inline-flex;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .profile-item--selected .profile-item__action { opacity: 1; }
+    .profile-item--selectable:hover .profile-item__action,
+    .profile-item--selectable:focus-within .profile-item__action { opacity: 1; }
+    .profile-item--selecting { pointer-events: none; }
+    .profile-item--selecting .profile-item__action { opacity: 1; }
+    .profile-list--selecting .profile-item:not(.profile-item--selecting) {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* Add Profile row — same 56px height and grid as .profile-item,
+       dashed border to signal it's an action rather than a profile. */
+    .add-profile-row {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      gap: var(--space-md);
+      height: 56px;
+      padding: 0 var(--space-lg);
+      background: transparent;
+      border: 1px dashed var(--color-border-default);
+      border-radius: var(--radius-md);
+      color: var(--color-text-secondary);
+      font: var(--text-body-1);
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+      transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    }
+    .add-profile-row__icon { display: grid; place-items: center; width: 24px; height: 24px; }
+    .add-profile-row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--color-border-emphasis);
+      color: var(--color-text-emphasis);
+    }
+
+    /* ==========================================================
+       Page 2 — Editor
+       ========================================================== */
+    .editor-layout {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-lg);
+      flex: 1;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-md);
+    }
+    .chart-card {
+      background: rgba(16, 19, 27, 0.72);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-sm);
+      padding: var(--space-sm);
+      display: grid;
+      gap: var(--space-sm);
+    }
+    .chart-card__title {
+      margin: 0;
+      font: var(--text-caption-b);
+      color: var(--color-text-secondary);
+    }
+    .chart-canvas {
+      width: 100%;
+      height: 188px;
+      display: block;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(42,47,59,0.48), rgba(18,21,30,0.55));
+    }
+
+    .table-wrap {
+      border: 0;
+      border-radius: 0;
+      overflow: auto;
+      max-height: 360px;
+      background: transparent;
+    }
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-align: left;
+      padding: var(--space-md);
+      font: var(--text-caption-b);
+      color: var(--color-text-secondary);
+      background: transparent;
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+    tbody td {
+      padding: var(--space-sm) var(--space-md);
+      border-top: 0;                           /* dividers handled by .insert-row */
+      vertical-align: middle;
+      font: var(--text-caption);
+      background: transparent;                 /* no row fill */
+    }
+    tbody td.mono { font-family: var(--font-mono); color: var(--color-text-secondary); }
+    .cell-input {
+      width: 100%;
+      height: 32px;
+      background: var(--color-bg-input);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-primary);
+      padding: 0 var(--space-md);
+      font: var(--text-caption);
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .cell-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(19,121,243,0.24);
+    }
+    .cell-input.is-invalid {
+      border-color: var(--color-danger);
+      box-shadow: 0 0 0 2px rgba(255,65,65,0.2);
+    }
+    .cell-input.is-invalid:focus {
+      box-shadow: 0 0 0 2px rgba(255,65,65,0.32);
+    }
+    /* Tooltip for invalid cell — appears ABOVE the input with a small caret
+       pointing down at the field. */
+    .cell-wrap { position: relative; }
+    .cell-tooltip {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      background: var(--color-bg-raised);
+      border: 1px solid var(--color-danger);
+      color: var(--color-danger);
+      font: var(--text-caption);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      z-index: 5;
+      box-shadow: var(--shadow-toast);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+    /* Caret — two stacked triangles to fake a 1px border around the arrow */
+    .cell-tooltip::before,
+    .cell-tooltip::after {
+      content: '';
+      position: absolute;
+      left: 14px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+    }
+    .cell-tooltip::before {
+      top: 100%;
+      border-top: 6px solid var(--color-danger);   /* outline triangle */
+    }
+    .cell-tooltip::after {
+      top: calc(100% - 1px);
+      border-top: 6px solid var(--color-bg-raised); /* fill triangle, 1px above to leave a thin border edge */
+    }
+    .cell-wrap:hover .cell-tooltip,
+    .cell-wrap:focus-within .cell-tooltip { opacity: 1; }
+
+    /* Insert row — Figma reference 8525:124098.
+       Layout: small "+ Add" CTA on the left, dashed line filling remaining width.
+       The dashed line acts as the visual divider between data rows. */
+    .insert-row td {
+      padding: 0;
+      background: transparent;
+      border: 0;
+      height: 28px;
+    }
+    .insert-row__inner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      height: 28px;
+      width: 100%;
+    }
+    .insert-add-btn {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 28px;
+      padding: 0 10px;
+      background: var(--color-white-4);
+      border: 1px solid var(--color-white-8);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-emphasis);
+      font: var(--text-caption-b);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+    }
+    .insert-add-btn:hover {
+      background: var(--color-white-8);
+      border-color: var(--color-border-emphasis);
+    }
+    .insert-add-btn svg { width: 14px; height: 14px; }
+    .insert-connector {
+      flex: 1;
+      height: 0;
+      border-top: 1px dashed var(--color-border-default);
+    }
+    /* Last insert row (after the final data row) is a full-width CTA pill — no connector. */
+    .insert-row--last .insert-row__inner { gap: 0; }
+    .insert-row--last .insert-add-btn {
+      flex: 1;
+      justify-content: center;
+      height: 36px;
+      border-style: dashed;
+    }
+    .insert-row--last .insert-connector { display: none; }
+
+    /* Trash-icon delete button (replaces "Delete" text button per Figma). */
+    .btn-icon-only {
+      display: inline-grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    }
+    .btn-icon-only:hover:not([disabled]) {
+      background: var(--color-white-4);
+      border-color: var(--color-white-8);
+      color: var(--color-text-emphasis);
+    }
+    .btn-icon-only[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+    .editor-footer {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding-top: var(--space-lg);
+      margin-top: auto;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .editor-footer__right {
+      margin-left: auto;
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    /* ==========================================================
+       Feedback — banner, toast, empty, loading
+       ========================================================== */
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
+      background: rgba(255,65,65,0.08);
+      border: 1px solid rgba(255,65,65,0.32);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-emphasis);
+      font: var(--text-caption);
+      margin-bottom: var(--space-md);
+    }
+    .banner__icon { color: var(--color-danger); display: grid; place-items: center; }
+    .banner__body { flex: 1; }
+    .banner__actions { display: flex; gap: var(--space-sm); }
+
+    /* ----------------------------------------------------------------
+       Snackbar — Figma node 9244:123672
+       • Position: fixed, bottom-center of viewport, 24px margin
+       • Surface: Gray/300 bg + White/8 hairline border + Dusk mode/300 shadow
+       • Radius: 8px
+       • Padding: 12px 16px, 16px gap between icon/body/action/close
+       • Typography: 1M/Caption for body, 1M/Caption Bold for action
+       • Action (Undo / Try again) uses Orange/600 text
+       ---------------------------------------------------------------- */
+    .toast-stack {
+      position: absolute;    /* anchored to .dialog (position: relative), not the viewport */
+      left: 50%;
+      bottom: var(--space-xl);
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      z-index: 10;
+      pointer-events: none;
+      align-items: center;
+      max-width: calc(100% - var(--space-2xl));   /* keep toast inside dialog padding */
+    }
+    .toast {
+      min-height: 48px;
+      min-width: 273px;
+      max-width: 592px;
+      padding: var(--space-md) var(--space-lg);
+      background: var(--color-bg-raised-hover);    /* Gray/300 #23252B */
+      border: 1px solid var(--color-white-8);
+      border-radius: var(--radius-md);              /* 8px */
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);   /* Dusk mode/300 */
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-lg);
+      color: var(--color-text-emphasis);
+      font: var(--text-caption);
+      pointer-events: auto;
+      animation: toast-in 200ms ease;
+    }
+    .toast__icon {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-secondary);
+    }
+    .toast--success .toast__icon { color: var(--color-success); }
+    .toast--error .toast__icon   { color: var(--color-warning); }   /* Orange/600 per Figma */
+    .toast__body {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .toast__action {
+      background: transparent;
+      border: 0;
+      color: var(--color-warning);                   /* Orange/600 per Figma */
+      font: var(--text-caption-b);
+      cursor: pointer;
+      padding: 4px 4px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+    .toast__action:hover { background: rgba(244, 129, 12, 0.12); }
+    .toast__close {
+      background: transparent;
+      border: 0;
+      color: var(--color-text-muted);
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      flex: 0 0 32px;
+      margin: -6px -6px -6px 0;  /* pulls close inside the 12px vertical padding */
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+    .toast__close:hover {
+      color: var(--color-text-emphasis);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    @keyframes toast-in {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .centered-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: var(--space-md);
+      padding: var(--space-3xl);
+    }
+    .centered-state__title {
+      margin: 0;
+      font: var(--text-body-1-b);
+      color: var(--color-text-emphasis);
+    }
+    .centered-state__body {
+      margin: 0;
+      font: var(--text-caption);
+      color: var(--color-text-muted);
+      max-width: 360px;
+    }
+    .centered-state__cta { margin-top: var(--space-sm); }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.08);
+      border-top-color: var(--color-text-secondary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .spinner--sm {
+      width: 16px;
+      height: 16px;
+      border-width: 2px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ==========================================================
+       Modals
+       ========================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: var(--color-bg-overlay);
+      display: grid;
+      place-items: center;
+      z-index: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-default);
+    }
+    .modal-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      position: relative;
+      width: 420px;
+      max-width: calc(100vw - 32px);
+      background: var(--color-bg-raised);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-modal);
+      padding: var(--space-xl);
+      transform: translateY(8px);
+      transition: transform var(--transition-default);
+    }
+    .modal-backdrop.is-open .modal { transform: translateY(0); }
+    .modal__close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    }
+    .modal__close:hover {
+      background: var(--color-white-4);
+      border-color: var(--color-white-8);
+      color: var(--color-text-emphasis);
+    }
+    .modal__title {
+      margin: 0 0 var(--space-md);
+      padding-right: var(--space-2xl);   /* leave room for the close icon */
+      font: var(--text-body-2-b);
+      color: var(--color-text-emphasis);
+    }
+    .modal__body {
+      font: var(--text-body-1);
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-xl);
+    }
+    .modal__field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xs);
+      margin-top: var(--space-md);
+    }
+    .modal__field-label {
+      font: var(--text-caption);
+      color: var(--color-text-muted);
+    }
+    .modal__field-input {
+      height: 40px;
+      background: var(--color-bg-input);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-primary);
+      padding: 0 var(--space-md);
+      font: var(--text-caption);
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .modal__field-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(19,121,243,0.24);
+    }
+    .modal__field-input.is-invalid {
+      border-color: var(--color-danger);
+      box-shadow: 0 0 0 2px rgba(255,65,65,0.2);
+    }
+    .modal__field-error {
+      font: var(--text-caption);
+      color: var(--color-danger);
+      min-height: 20px;
+    }
+    .modal__footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-sm);
+    }
+    .modal__footer--spread { justify-content: space-between; }
+    /* Modal CTAs have parity: every footer button is at least 96px and the
+       paired buttons (e.g. Save / Cancel) end up the same width. */
+    .modal__footer .btn,
+    .modal__footer--spread .btn { min-width: 96px; }
+
+    /* ==========================================================
+       Dev demo dropdown (QA state toggles) — top-left floating
+       ========================================================== */
+    .dev-panel {
+      position: fixed;
+      left: var(--space-lg);
+      top: var(--space-lg);
+      z-index: 2000;
+    }
+    .dev-panel__trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      height: 36px;
+      padding: 0 var(--space-md);
+      background: var(--color-bg-raised);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      color: var(--color-text-primary);
+      font: var(--text-caption-b);
+      cursor: pointer;
+      box-shadow: var(--shadow-toast);
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+    .dev-panel__trigger:hover {
+      background: var(--color-bg-raised-hover);
+      border-color: var(--color-border-emphasis);
+      color: var(--color-text-emphasis);
+    }
+    .dev-panel__trigger-label { color: var(--color-text-muted); }
+    .dev-panel__trigger-current { color: var(--color-text-emphasis); }
+    .dev-panel__caret {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);     /* right-arrow when closed */
+      opacity: 0.6;
+      margin-left: 2px;
+      transition: transform var(--transition-fast);
+    }
+    .dev-panel.is-open .dev-panel__caret {
+      transform: rotate(45deg);      /* down-arrow when open */
+    }
+    .dev-panel__menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      min-width: 240px;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--space-sm);
+      background: var(--color-bg-raised);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-toast);
+    }
+    .dev-panel.is-open .dev-panel__menu { display: flex; }
+    .dev-panel__menu-title {
+      font: var(--text-caption);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 6px 8px 2px;
+    }
+    .dev-panel__btn {
+      background: transparent;
+      border: 0;
+      text-align: left;
+      font: var(--text-caption);
+      color: var(--color-text-primary);
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .dev-panel__btn:hover {
+      background: var(--color-bg-raised-hover);
+      color: var(--color-text-emphasis);
+    }
+    .dev-panel__btn.is-active {
+      background: rgba(19, 121, 243, 0.12);
+      color: var(--color-text-emphasis);
+    }
+
+    /* ==========================================================
+       Responsive
+       ========================================================== */
+    @media (max-width: 980px) {
+      .chart-grid { grid-template-columns: 1fr; }
+      .editor-footer { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Dialog shell with tab bar. Only the Combinator panel is fully built. -->
+  <section class="dialog" role="dialog" aria-labelledby="dialog-title">
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="control">Control</button>
+      <button class="tab" role="tab" data-tab="ca">Collision Avoidance</button>
+      <button class="tab" role="tab" data-tab="rpm">RPM Load</button>
+      <button class="tab is-active" role="tab" data-tab="combinator" aria-selected="true">Combinator Curve Profile</button>
+      <button class="tab" role="tab" data-tab="opt">Optimization</button>
+      <button class="tab" role="tab" data-tab="backup">Backup</button>
+      <button class="tab-close" aria-label="Close dialog" id="dialogCloseBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </nav>
+
+    <div class="panels">
+      <article class="panel" data-tab-panel="control"><p class="panel-placeholder">Control tab placeholder.</p></article>
+      <article class="panel" data-tab-panel="ca"><p class="panel-placeholder">Collision Avoidance tab placeholder.</p></article>
+      <article class="panel" data-tab-panel="rpm"><p class="panel-placeholder">RPM Load tab placeholder.</p></article>
+      <article class="panel is-active" data-tab-panel="combinator" id="combinatorPanel"></article>
+      <article class="panel" data-tab-panel="opt"><p class="panel-placeholder">Optimization tab placeholder.</p></article>
+      <article class="panel" data-tab-panel="backup"><p class="panel-placeholder">Backup tab placeholder.</p></article>
+    </div>
+
+    <!-- Toast stack lives inside the dialog so it's clipped to the dialog's bounds
+         and anchored to its bottom — not the viewport. -->
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+  </section>
+
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"></div>
+
+  <!-- Dev demo dropdown — floating, top-left -->
+  <aside class="dev-panel" id="devPanel">
+    <button type="button" class="dev-panel__trigger" id="devTrigger" aria-haspopup="menu" aria-expanded="false">
+      <span class="dev-panel__trigger-label">Demo:</span>
+      <span class="dev-panel__trigger-current" id="devCurrentLabel">Populated</span>
+      <span class="dev-panel__caret" aria-hidden="true"></span>
+    </button>
+    <div class="dev-panel__menu" role="menu" id="devMenu">
+      <span class="dev-panel__menu-title">Page 1 — Profile list</span>
+      <button class="dev-panel__btn" data-dev="populated"   data-label="Populated">Populated (default)</button>
+      <button class="dev-panel__btn" data-dev="loading"     data-label="Loading">Loading</button>
+      <button class="dev-panel__btn" data-dev="empty"       data-label="Empty">Empty</button>
+      <button class="dev-panel__btn" data-dev="select-error" data-label="Select error">Select error</button>
+      <span class="dev-panel__menu-title">Page 2 — Edit profile</span>
+      <button class="dev-panel__btn" data-dev="edit"            data-label="Edit">Edit profile 0</button>
+      <button class="dev-panel__btn" data-dev="edit-dirty"      data-label="Edit · dirty">Dirty</button>
+      <button class="dev-panel__btn" data-dev="edit-invalid"    data-label="Edit · invalid">Invalid cell</button>
+      <button class="dev-panel__btn" data-dev="edit-saving"     data-label="Edit · saving">Saving</button>
+      <button class="dev-panel__btn" data-dev="edit-save-error" data-label="Edit · save error">Save error</button>
+    </div>
+  </aside>
+
+  <script>
+    /* ============================================================
+       ICONS — Feather set (inline SVG strings for reuse)
+       ============================================================ */
+    const ICON = {
+      check: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+      chevronLeft: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>',
+      plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+      alert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      checkCircle: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+      close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>'
+    };
+
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const initialSample = [
+      { id: 0, revision_table_list: [{ revision: 0, table: [
+        { comb_pos: -100, rpm: 117.0, pitch_angle: -21.73, pitch_percent: -100.0 },
+        { comb_pos: -84,  rpm: 117.0, pitch_angle: -20.93, pitch_percent: -96.3 },
+        { comb_pos: -60,  rpm: 117.0, pitch_angle: -16.08, pitch_percent: -74.0 },
+        { comb_pos: -35,  rpm: 117.0, pitch_angle:  -7.23, pitch_percent: -33.3 },
+        { comb_pos:  -3,  rpm: 117.0, pitch_angle:   0.00, pitch_percent:   0.0 },
+        { comb_pos:   3,  rpm: 117.0, pitch_angle:   0.00, pitch_percent:   0.0 },
+        { comb_pos:  35,  rpm: 117.0, pitch_angle:   7.23, pitch_percent:  31.4 },
+        { comb_pos:  60,  rpm: 117.0, pitch_angle:  16.08, pitch_percent:  69.7 },
+        { comb_pos:  76,  rpm: 117.0, pitch_angle:  20.07, pitch_percent:  87.0 },
+        { comb_pos:  84,  rpm: 117.0, pitch_angle:  20.93, pitch_percent:  90.8 },
+        { comb_pos:  92,  rpm: 117.0, pitch_angle:  22.00, pitch_percent:  95.4 },
+        { comb_pos: 100,  rpm: 117.0, pitch_angle:  23.06, pitch_percent: 100.0 }
+      ]}] },
+      { id: 1, revision_table_list: [{ revision: 0, table: [
+        { comb_pos: -100, rpm: 95.0, pitch_angle: -18.0, pitch_percent: -100.0 },
+        { comb_pos:    0, rpm: 95.0, pitch_angle:   0.0, pitch_percent:    0.0 },
+        { comb_pos:  100, rpm: 95.0, pitch_angle:  18.0, pitch_percent:  100.0 }
+      ]}] },
+      { id: 2, revision_table_list: [{ revision: 0, table: [
+        { comb_pos: -100, rpm: 130.0, pitch_angle: -24.0, pitch_percent: -100.0 },
+        { comb_pos:    0, rpm: 130.0, pitch_angle:   0.0, pitch_percent:    0.0 },
+        { comb_pos:  100, rpm: 130.0, pitch_angle:  24.0, pitch_percent:  100.0 }
+      ]}] }
+    ];
+
+    const state = {
+      page: 'loading',          // 'loading' | 'empty' | 'list' | 'edit'
+      listState: 'populated',   // 'loading' | 'empty' | 'populated' | 'selecting' | 'error'
+      editState: 'clean',       // 'loading' | 'clean' | 'dirty' | 'saving' | 'save-error'
+      listError: null,
+      editError: null,
+      profiles: [],
+      selectedProfileId: 0,
+      editingProfileId: null,
+      editingTable: [],
+      originalTable: [],
+      selectingProfileId: null,  // row currently showing inline spinner
+      saveAbortReq: 0            // increments per save; used to guard back-nav during save
+    };
+
+    const els = {
+      panel: document.getElementById('combinatorPanel'),
+      toastStack: document.getElementById('toastStack'),
+      backdrop: document.getElementById('modalBackdrop')
+    };
+
+    /* ============================================================
+       UTIL
+       ============================================================ */
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const clone = v => JSON.parse(JSON.stringify(v));
+    const numOr = (v, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+    const sortAsc = arr => [...arr].sort((a, b) => a - b);
+    const sortDescByCombPos = arr => arr.sort((a, b) => numOr(b.comb_pos) - numOr(a.comb_pos));
+
+    /* ============================================================
+       FAKE API — simulated REST
+       ============================================================ */
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const api = {
+      async fetchProfiles() {
+        await sleep(400);
+        return { profiles: clone(initialSample), selected_profile_id: 0 };
+      },
+      async saveProfile(profileId, table) {
+        await sleep(500);
+        const profile = state.profiles.find(p => p.id === profileId);
+        if (!profile) throw new Error('Profile not found');
+        profile.revision_table_list[profile.revision_table_list.length - 1].table = clone(table);
+      },
+      async selectProfile(profileId) {
+        await sleep(400);
+        state.selectedProfileId = profileId;
+      },
+      async createProfile(newId) {
+        await sleep(300);
+        if (state.profiles.some(p => p.id === newId)) throw new Error('Profile id already exists');
+        const profile = { id: newId, revision_table_list: [{ revision: 0, table: [
+          { comb_pos: 0, rpm: 117.0, pitch_angle: 0.0, pitch_percent: 0.0 }
+        ]}] };
+        state.profiles.push(profile);
+      },
+      async deleteProfile(profileId) {
+        await sleep(400);
+        state.profiles = state.profiles.filter(p => p.id !== profileId);
+      }
+    };
+
+    /* ============================================================
+       VALIDATION
+       ============================================================ */
+    const RULES = {
+      comb_pos:     { min: -100, max: 100, label: 'comb_pos must be -100 to 100', unique: true },
+      rpm:          { min: 0,    max: 1200, label: 'rpm must be 0 to 1200' },
+      pitch_angle:  { min: -90,  max: 90,   label: 'pitch_angle must be -90 to 90' },
+      pitch_percent:{ min: -100, max: 100,  label: 'pitch_percent must be -100 to 100' }
+    };
+
+    function validateTable(table) {
+      const errors = {}; // errors[rowIndex][field] = message
+      const posCounts = {};
+      table.forEach(row => {
+        const v = numOr(row.comb_pos);
+        posCounts[v] = (posCounts[v] || 0) + 1;
+      });
+      table.forEach((row, i) => {
+        Object.keys(RULES).forEach(key => {
+          const rule = RULES[key];
+          const raw = row[key];
+          const v = Number(raw);
+          if (raw === '' || !Number.isFinite(v)) {
+            errors[i] = errors[i] || {};
+            errors[i][key] = `${key} must be a number`;
+            return;
+          }
+          if (v < rule.min || v > rule.max) {
+            errors[i] = errors[i] || {};
+            errors[i][key] = rule.label;
+          }
+          if (rule.unique && posCounts[v] > 1) {
+            errors[i] = errors[i] || {};
+            errors[i][key] = 'comb_pos must be unique within table';
+          }
+        });
+      });
+      return errors;
+    }
+
+    function hasErrors(errors) { return Object.keys(errors).length > 0; }
+
+    /* ============================================================
+       RENDER — top-level (combinator panel)
+       ============================================================ */
+    function renderPanel() {
+      if (state.page === 'loading') return renderLoadingPage();
+      if (state.page === 'empty') return renderEmptyPage();
+      if (state.page === 'list') return renderListPage();
+      if (state.page === 'edit') return renderEditPage();
+    }
+
+    /* ---- Loading ---- */
+    function renderLoadingPage() {
+      els.panel.innerHTML = `
+        <header class="page-header">
+          <div class="page-header__title-row">
+            <h1 class="page-header__title" id="dialog-title">Combinator Curve Profile</h1>
+          </div>
+          <p class="page-header__subtitle">Setting &gt; Combinator Curve Profile Editor</p>
+        </header>
+        <div class="centered-state">
+          <div class="spinner" role="status" aria-label="Loading"></div>
+          <h2 class="centered-state__title">Loading profiles</h2>
+          <p class="centered-state__body">Loading content. Please wait…</p>
+        </div>`;
+    }
+
+    /* ---- Empty ---- */
+    function renderEmptyPage() {
+      els.panel.innerHTML = `
+        <header class="page-header">
+          <div class="page-header__title-row">
+            <h1 class="page-header__title" id="dialog-title">Combinator Curve Profile</h1>
+          </div>
+          <p class="page-header__subtitle">Setting &gt; Combinator Curve Profile Editor</p>
+        </header>
+        <div class="centered-state">
+          <h2 class="centered-state__title">No profile ID is found</h2>
+          <p class="centered-state__body">Please add profile to customize combinator curve value.</p>
+          <button class="btn btn--primary centered-state__cta" id="emptyAddBtn">Add Profile</button>
+        </div>`;
+      $('#emptyAddBtn').addEventListener('click', openAddProfileModal);
+    }
+
+    /* ---- Page 1: list ---- */
+    function renderListPage() {
+      const selected = state.profiles.find(p => p.id === state.selectedProfileId);
+      const others = state.profiles.filter(p => p.id !== state.selectedProfileId).sort((a, b) => a.id - b.id);
+      const banner = state.listError
+        ? `<div class="banner" role="alert">
+             <span class="banner__icon">${ICON.alert}</span>
+             <span class="banner__body">${state.listError}</span>
+             <span class="banner__actions">
+               <button class="btn btn--ghost btn--sm" id="listRetryBtn">Retry</button>
+               <button class="btn btn--ghost btn--sm" id="listDismissBtn">Dismiss</button>
+             </span>
+           </div>`
+        : '';
+
+      els.panel.innerHTML = `
+        <header class="page-header">
+          <div class="page-header__title-row">
+            <h1 class="page-header__title" id="dialog-title">Combinator Curve Profile</h1>
+          </div>
+          <p class="page-header__subtitle">Setting &gt; Combinator Curve Profile Editor</p>
+        </header>
+        ${banner}
+        <h2 class="section-label">Selected Profile</h2>
+        ${selected
+          ? `<ul class="profile-list" id="selectedList">
+               ${renderSelectedRow(selected)}
+             </ul>`
+          : '<p class="panel-placeholder">No profile is currently selected.</p>'}
+        <div class="section-header">
+          <h2 class="section-label">Other Profiles</h2>
+          <button class="btn btn--secondary" id="addProfileRowBtn" aria-label="Add Profile">
+            <span class="btn__icon" aria-hidden="true">${ICON.plus}</span>
+            <span>Add Profile</span>
+          </button>
+        </div>
+        <ul class="profile-list ${state.listState === 'selecting' ? 'profile-list--selecting' : ''}" id="otherList">
+          ${others.map(p => renderOtherRow(p)).join('')}
+        </ul>`;
+
+      // Delegated list click handler is attached once at boot (see BOOT section).
+      $('#addProfileRowBtn').addEventListener('click', openAddProfileModal);
+      if (state.listError) {
+        $('#listRetryBtn').addEventListener('click', retryList);
+        $('#listDismissBtn').addEventListener('click', () => { state.listError = null; renderPanel(); });
+      }
+    }
+
+    function renderSelectedRow(profile) {
+      return `
+        <li>
+          <div class="profile-item profile-item--selected" data-profile-id="${profile.id}">
+            <span class="profile-item__check" aria-label="Selected">${ICON.check}</span>
+            <span class="profile-item__name">Profile ${profile.id}</span>
+            <span class="profile-item__action">
+              <button class="btn btn--secondary btn--sm" data-action="details" data-profile-id="${profile.id}">Details</button>
+            </span>
+          </div>
+        </li>`;
+    }
+
+    function renderOtherRow(profile) {
+      const isSelecting = state.selectingProfileId === profile.id;
+      const actionHtml = isSelecting
+        ? `<span class="spinner spinner--sm" role="status" aria-label="Selecting"></span>`
+        : `<button class="btn btn--secondary btn--sm" data-action="details" data-profile-id="${profile.id}">Details</button>`;
+      return `
+        <li>
+          <div class="profile-item profile-item--selectable ${isSelecting ? 'profile-item--selecting' : ''}"
+               data-action="select" data-profile-id="${profile.id}"
+               tabindex="0" role="button" aria-label="Select Profile ${profile.id}">
+            <span class="profile-item__check" aria-hidden="true"></span>
+            <span class="profile-item__name">Profile ${profile.id}</span>
+            <span class="profile-item__action">${actionHtml}</span>
+          </div>
+        </li>`;
+    }
+
+    function onListClick(e) {
+      const detailsBtn = e.target.closest('[data-action="details"]');
+      if (detailsBtn) {
+        e.stopPropagation();
+        const id = Number(detailsBtn.dataset.profileId);
+        navigateToEdit(id);
+        return;
+      }
+      const row = e.target.closest('[data-action="select"]');
+      if (row) {
+        const id = Number(row.dataset.profileId);
+        openSelectConfirmModal(id);
+      }
+    }
+
+    async function retryList() {
+      state.listError = null;
+      state.page = 'loading';
+      renderPanel();
+      await bootLoadList();
+    }
+
+    /* ---- Page 2: edit ---- */
+    function renderEditPage() {
+      const profile = state.profiles.find(p => p.id === state.editingProfileId);
+      if (!profile) {
+        state.page = 'list';
+        return renderListPage();
+      }
+
+      const errors = validateTable(state.editingTable);
+      const invalid = hasErrors(errors);
+      const dirty = isDirty();
+      const saving = state.editState === 'saving';
+
+      const banner = state.editError
+        ? `<div class="banner" role="alert">
+             <span class="banner__icon">${ICON.alert}</span>
+             <span class="banner__body">${state.editError}</span>
+             <span class="banner__actions">
+               <button class="btn btn--ghost btn--sm" id="editRetryBtn">Retry</button>
+               <button class="btn btn--ghost btn--sm" id="editDismissBtn">Dismiss</button>
+             </span>
+           </div>`
+        : '';
+
+      const saveLabel = saving
+        ? `<span class="btn-spinner"></span><span>Saving…</span>`
+        : dirty ? 'Save changes' : 'Save';
+
+      const isActive = profile.id === state.selectedProfileId;
+      const deleteDisabled = isActive ? 'disabled aria-disabled="true"' : '';
+      const deleteTitle = isActive ? 'title="Can&#39;t delete the active profile. Select another profile first."' : '';
+
+      els.panel.innerHTML = `
+        <header class="page-header">
+          <div class="page-header__title-row">
+            <button class="page-header__back" id="backBtn" aria-label="Back to profile list">${ICON.chevronLeft}</button>
+            <h1 class="page-header__title" id="dialog-title">Edit Profile ${profile.id}</h1>
+          </div>
+        </header>
+        ${banner}
+        ${isActive ? `<div class="banner" role="status" style="background:rgba(19,121,243,0.08); border-color:rgba(19,121,243,0.32); color: var(--color-text-emphasis);">
+            <span class="banner__icon" style="color: var(--color-primary);">${ICON.alert}</span>
+            <span class="banner__body">This is the active profile. To delete it, select another profile first.</span>
+          </div>` : ''}
+        <div class="editor-layout">
+          <div class="chart-grid">
+            <section class="chart-card">
+              <h3 class="chart-card__title">Combinator Position vs RPM</h3>
+              <canvas id="rpmChart" class="chart-canvas"></canvas>
+            </section>
+            <section class="chart-card">
+              <h3 class="chart-card__title">Combinator Position vs Pitch Angle</h3>
+              <canvas id="pitchChart" class="chart-canvas"></canvas>
+            </section>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 70px;">No.</th>
+                  <th>comb_pos</th>
+                  <th>rpm</th>
+                  <th>pitch_angle</th>
+                  <th>pitch_percent</th>
+                  <th style="width: 96px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="curveTableBody">${renderTableRows(errors)}</tbody>
+            </table>
+          </div>
+          <div class="editor-footer">
+            <button class="btn btn--lg btn--danger" id="deleteProfileBtn" ${deleteDisabled} ${deleteTitle}>Delete Profile</button>
+            <div class="editor-footer__right">
+              <button class="btn btn--lg btn--secondary" id="cancelBtn" ${saving ? 'disabled' : ''}>Cancel</button>
+              <button class="btn btn--lg btn--primary" id="saveBtn" ${invalid || saving ? 'disabled' : ''}>${saveLabel}</button>
+            </div>
+          </div>
+        </div>`;
+
+      // Event wiring
+      $('#backBtn').addEventListener('click', tryNavigateBack);
+      $('#cancelBtn').addEventListener('click', tryNavigateBack);
+      $('#saveBtn').addEventListener('click', doSave);
+      if (!isActive) $('#deleteProfileBtn').addEventListener('click', openDeleteProfileModal);
+      $('#curveTableBody').addEventListener('input', onTableInput);
+      $('#curveTableBody').addEventListener('change', onTableChange);
+      $('#curveTableBody').addEventListener('click', onTableClick);
+      if (state.editError) {
+        $('#editRetryBtn').addEventListener('click', doSave);
+        $('#editDismissBtn').addEventListener('click', () => { state.editError = null; renderPanel(); });
+      }
+
+      renderCharts();
+    }
+
+    function renderTableRows(errors) {
+      sortDescByCombPos(state.editingTable);
+      const total = state.editingTable.length;
+      let html = '';
+      state.editingTable.forEach((row, index) => {
+        const rowErrs = errors[index] || {};
+        // Inter-row insert (above this data row) — except above the very first row
+        // where we don't need a leading divider.
+        if (index > 0) html += buildInsertRow(index, false);
+        html += `<tr>
+          <td class="mono">${index + 1}</td>
+          ${numericCell(index, 'comb_pos', row.comb_pos, rowErrs)}
+          ${numericCell(index, 'rpm', row.rpm, rowErrs, '0.1')}
+          ${numericCell(index, 'pitch_angle', row.pitch_angle, rowErrs, '0.01')}
+          ${numericCell(index, 'pitch_percent', row.pitch_percent, rowErrs, '0.1')}
+          <td><button class="btn-icon-only" data-action="delete-row" data-row="${index}" aria-label="Delete row">${ICON.trash}</button></td>
+        </tr>`;
+      });
+      // Trailing full-width "+ Add" pill at the bottom (insert at end).
+      html += buildInsertRow(total, true);
+      return html;
+    }
+
+    function numericCell(rowIndex, key, value, errs, step) {
+      const invalid = errs[key];
+      const stepAttr = step ? ` step="${step}"` : '';
+      const tooltip = invalid ? `<span class="cell-tooltip">${invalid}</span>` : '';
+      return `<td><span class="cell-wrap">
+        <input class="cell-input ${invalid ? 'is-invalid' : ''}" type="number"${stepAttr} value="${value}" data-row="${rowIndex}" data-key="${key}" aria-invalid="${invalid ? 'true' : 'false'}">
+        ${tooltip}
+      </span></td>`;
+    }
+
+    function buildInsertRow(insertIndex, isLast) {
+      return `<tr class="insert-row ${isLast ? 'insert-row--last' : ''}">
+        <td colspan="6">
+          <div class="insert-row__inner">
+            <button class="insert-add-btn" data-action="insert-row" data-row="${insertIndex}" aria-label="Insert row">
+              ${ICON.plus}<span>Add</span>
+            </button>
+            <span class="insert-connector" aria-hidden="true"></span>
+          </div>
+        </td>
+      </tr>`;
+    }
+
+    function isDirty() {
+      return JSON.stringify(state.editingTable) !== JSON.stringify(state.originalTable);
+    }
+
+    /* ============================================================
+       TABLE EVENTS
+       ============================================================ */
+    function onTableInput(e) {
+      const input = e.target.closest('.cell-input');
+      if (!input) return;
+      const i = Number(input.dataset.row);
+      const k = input.dataset.key;
+      if (!Number.isInteger(i) || !k) return;
+      state.editingTable[i][k] = input.value;
+      updateEditStateFromDirty();
+      // Re-validate this row's visual state + charts only, avoid full rerender for input fluidity
+      const errors = validateTable(state.editingTable);
+      const cellInvalid = !!(errors[i] && errors[i][k]);
+      input.classList.toggle('is-invalid', cellInvalid);
+      const wrap = input.closest('.cell-wrap');
+      const existingTooltip = wrap.querySelector('.cell-tooltip');
+      if (cellInvalid && !existingTooltip) {
+        const tip = document.createElement('span');
+        tip.className = 'cell-tooltip';
+        tip.textContent = errors[i][k];
+        wrap.appendChild(tip);
+      } else if (!cellInvalid && existingTooltip) {
+        existingTooltip.remove();
+      } else if (cellInvalid && existingTooltip) {
+        existingTooltip.textContent = errors[i][k];
+      }
+      // Save button enablement
+      const anyInvalid = hasErrors(errors);
+      const saveBtn = $('#saveBtn');
+      if (saveBtn) saveBtn.disabled = anyInvalid;
+      // Update save label on dirty transition
+      updateSaveLabel();
+      renderCharts();
+    }
+
+    function onTableChange(e) {
+      const input = e.target.closest('.cell-input');
+      if (!input || input.dataset.key !== 'comb_pos') return;
+      // Re-sort the table once comb_pos changes
+      renderPanel();
+    }
+
+    function onTableClick(e) {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const rowIndex = Number(btn.dataset.row);
+      if (action === 'delete-row') {
+        const removed = state.editingTable[rowIndex];
+        state.editingTable.splice(rowIndex, 1);
+        updateEditStateFromDirty();
+        renderPanel();
+        showUndoToast('Row deleted', () => {
+          // Restore
+          state.editingTable.splice(rowIndex, 0, removed);
+          updateEditStateFromDirty();
+          renderPanel();
+        });
+      } else if (action === 'insert-row') {
+        const prev = state.editingTable[rowIndex - 1];
+        const next = state.editingTable[rowIndex];
+        const base = prev || next || { comb_pos: 0, rpm: 117, pitch_angle: 0, pitch_percent: 0 };
+        state.editingTable.splice(rowIndex, 0, { ...base });
+        updateEditStateFromDirty();
+        renderPanel();
+      }
+    }
+
+    function updateEditStateFromDirty() {
+      if (state.editState === 'saving') return;
+      state.editState = isDirty() ? 'dirty' : 'clean';
+    }
+
+    function updateSaveLabel() {
+      const saveBtn = $('#saveBtn');
+      if (!saveBtn) return;
+      const dirty = isDirty();
+      const saving = state.editState === 'saving';
+      if (saving) return;
+      saveBtn.textContent = dirty ? 'Save changes' : 'Save';
+    }
+
+    /* ============================================================
+       CHARTS
+       ============================================================ */
+    function renderCharts() {
+      drawMetricChart($('#rpmChart'), 'rpm', 'RPM', 'var(--color-warning)');
+      drawMetricChart($('#pitchChart'), 'pitch_angle', 'deg', 'var(--color-success)');
+    }
+
+    function drawMetricChart(canvas, metricKey, metricLabel, cssColor) {
+      if (!(canvas instanceof HTMLCanvasElement)) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width < 10 || rect.height < 10) return;
+      const color = cssColor.startsWith('var')
+        ? getComputedStyle(canvas).getPropertyValue(cssColor.match(/var\((--[^)]+)\)/)[1]).trim() || '#fff'
+        : cssColor;
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const points = state.editingTable
+        .map(r => ({ comb_pos: numOr(r.comb_pos), rpm: numOr(r.rpm), pitch_angle: numOr(r.pitch_angle) }))
+        .sort((a, b) => a.comb_pos - b.comb_pos);
+
+      const left = 44, right = 14, top = 12, bottom = 30;
+      const plotW = width - left - right;
+      const plotH = height - top - bottom;
+
+      ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('--color-text-secondary').trim() || '#B0B3BF';
+      ctx.font = '12px var(--font-mono), monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('comb_pos', left, height - 8);
+      ctx.textAlign = 'right';
+      ctx.fillText(metricLabel, left - 8, top + 10);
+
+      if (points.length === 0 || plotW < 20 || plotH < 20) {
+        ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('--color-text-muted').trim() || '#858998';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data', width / 2, height / 2);
+        return;
+      }
+
+      let xMin = points[0].comb_pos;
+      let xMax = points[points.length - 1].comb_pos;
+      let yMin = Math.min(...points.map(p => p[metricKey]));
+      let yMax = Math.max(...points.map(p => p[metricKey]));
+      if (xMin === xMax) { xMin -= 1; xMax += 1; }
+      if (yMin === yMax) { yMin -= 1; yMax += 1; }
+
+      const toX = v => left + ((v - xMin) / (xMax - xMin)) * plotW;
+      const toY = v => top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = top + (plotH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + plotW, y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#7f889d';
+      ctx.beginPath();
+      ctx.moveTo(left, top + plotH);
+      ctx.lineTo(left + plotW, top + plotH);
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, top + plotH);
+      ctx.stroke();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      points.forEach((p, idx) => {
+        const x = toX(p.comb_pos);
+        const y = toY(p[metricKey]);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(toX(p.comb_pos), toY(p[metricKey]), 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('--color-text-secondary').trim() || '#B0B3BF';
+      ctx.font = '11px var(--font-mono), monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${xMin}`, left, height - 16);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${xMax}`, left + plotW, height - 16);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${yMax.toFixed(1)}`, left - 6, top + 10);
+      ctx.fillText(`${yMin.toFixed(1)}`, left - 6, top + plotH);
+    }
+
+    /* ============================================================
+       NAVIGATION
+       ============================================================ */
+    function navigateToEdit(profileId) {
+      const profile = state.profiles.find(p => p.id === profileId);
+      if (!profile) return;
+      state.editingProfileId = profileId;
+      const latestRev = profile.revision_table_list[profile.revision_table_list.length - 1];
+      state.editingTable = clone(latestRev.table);
+      state.originalTable = clone(latestRev.table);
+      state.editState = 'clean';
+      state.editError = null;
+      state.page = 'edit';
+      renderPanel();
+    }
+
+    function navigateToList() {
+      state.editingProfileId = null;
+      state.editingTable = [];
+      state.originalTable = [];
+      state.editError = null;
+      state.editState = 'clean';
+      state.page = state.profiles.length === 0 ? 'empty' : 'list';
+      renderPanel();
+    }
+
+    function tryNavigateBack() {
+      if (state.editState === 'saving') return; // blocked — user sees spinner
+      if (isDirty()) {
+        openUnsavedGuardModal({
+          onSave: async () => { closeModal(); await doSave(); if (state.editState !== 'save-error') navigateToList(); },
+          onDiscard: () => { closeModal(); navigateToList(); },
+          onCancel: () => closeModal()
+        });
+      } else {
+        navigateToList();
+      }
+    }
+
+    /* ============================================================
+       ACTIONS (save / select / add / delete)
+       ============================================================ */
+    async function doSave() {
+      const errors = validateTable(state.editingTable);
+      if (hasErrors(errors)) return;
+      state.editState = 'saving';
+      state.editError = null;
+      renderPanel();
+      try {
+        await api.saveProfile(state.editingProfileId, state.editingTable);
+        state.originalTable = clone(state.editingTable);
+        state.editState = 'clean';
+        renderPanel();
+        showToast('Profile saved', 'success');
+      } catch (err) {
+        state.editState = 'save-error';
+        state.editError = 'Save failed — ' + (err.message || 'please try again.');
+        renderPanel();
+      }
+    }
+
+    async function doSelect(profileId) {
+      state.listState = 'selecting';
+      state.selectingProfileId = profileId;
+      state.listError = null;
+      renderPanel();
+      try {
+        await api.selectProfile(profileId);
+        state.listState = 'populated';
+        state.selectingProfileId = null;
+        renderPanel();
+      } catch (err) {
+        state.listState = 'error';
+        state.selectingProfileId = null;
+        state.listError = 'Failed to select profile — ' + (err.message || 'please try again.');
+        renderPanel();
+      }
+    }
+
+    async function doAddProfile(newId) {
+      try {
+        await api.createProfile(newId);
+        closeModal();
+        navigateToEdit(newId);
+      } catch (err) {
+        // Caller re-renders; surface via modal inline
+        throw err;
+      }
+    }
+
+    async function doDeleteProfile() {
+      const id = state.editingProfileId;
+      try {
+        await api.deleteProfile(id);
+        closeModal();
+        showToast(`Profile ${id} deleted`, 'success');
+        navigateToList();
+      } catch (err) {
+        closeModal();
+        state.editError = 'Delete failed — ' + (err.message || 'please try again.');
+        renderPanel();
+      }
+    }
+
+    /* ============================================================
+       MODALS
+       ============================================================ */
+    function openModal(contentHtml, onMount) {
+      els.backdrop.innerHTML = contentHtml;
+      els.backdrop.classList.add('is-open');
+      const modalEl = els.backdrop.querySelector('.modal');
+      // Auto-inject a top-right close (X) button on every modal.
+      if (modalEl && !modalEl.querySelector('.modal__close')) {
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'modal__close';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.innerHTML = ICON.close;
+        closeBtn.addEventListener('click', closeModal);
+        modalEl.prepend(closeBtn);
+      }
+      if (onMount) onMount(modalEl);
+      // Focus first input or primary button (skip the close button so it isn't auto-focused)
+      const firstFocusable = els.backdrop.querySelector(
+        'input, button.btn--primary, button.btn--danger-solid, button:not(.modal__close)'
+      );
+      if (firstFocusable) firstFocusable.focus();
+      // Close on escape
+      document.addEventListener('keydown', onModalKeydown);
+    }
+    function closeModal() {
+      els.backdrop.classList.remove('is-open');
+      els.backdrop.innerHTML = '';
+      document.removeEventListener('keydown', onModalKeydown);
+    }
+    function onModalKeydown(e) {
+      if (e.key === 'Escape') closeModal();
+    }
+
+    function openSelectConfirmModal(profileId) {
+      openModal(`
+        <div class="modal" role="dialog" aria-labelledby="selectConfirmTitle">
+          <h2 class="modal__title" id="selectConfirmTitle">Select Profile ${profileId}?</h2>
+          <div class="modal__body">Do you want to select Profile ${profileId} as the active profile?</div>
+          <div class="modal__footer">
+            <button class="btn btn--secondary" id="selectCancel">Cancel</button>
+            <button class="btn btn--primary" id="selectConfirm">Select</button>
+          </div>
+        </div>
+      `, modal => {
+        modal.querySelector('#selectCancel').addEventListener('click', closeModal);
+        modal.querySelector('#selectConfirm').addEventListener('click', () => {
+          closeModal();
+          doSelect(profileId);
+        });
+      });
+    }
+
+    function openAddProfileModal() {
+      openModal(`
+        <div class="modal" role="dialog" aria-labelledby="addProfileTitle">
+          <h2 class="modal__title" id="addProfileTitle">Add Profile</h2>
+          <div class="modal__body">Enter an integer ID for the new profile.</div>
+          <div class="modal__field">
+            <label class="modal__field-label" for="addProfileIdInput">Profile ID</label>
+            <input class="modal__field-input" id="addProfileIdInput" type="number" step="1" min="0" placeholder="e.g. 3">
+            <span class="modal__field-error" id="addProfileIdError"></span>
+          </div>
+          <div class="modal__footer">
+            <button class="btn btn--secondary" id="addProfileCancel">Cancel</button>
+            <button class="btn btn--primary" id="addProfileSubmit">Add</button>
+          </div>
+        </div>
+      `, modal => {
+        const input = modal.querySelector('#addProfileIdInput');
+        const errEl = modal.querySelector('#addProfileIdError');
+        const submit = modal.querySelector('#addProfileSubmit');
+        const validate = () => {
+          const raw = input.value.trim();
+          if (raw === '') { errEl.textContent = ''; input.classList.remove('is-invalid'); submit.disabled = true; return false; }
+          const n = Number(raw);
+          if (!Number.isInteger(n) || n < 0) { errEl.textContent = 'Must be a non-negative integer.'; input.classList.add('is-invalid'); submit.disabled = true; return false; }
+          if (state.profiles.some(p => p.id === n)) { errEl.textContent = `Profile ${n} already exists.`; input.classList.add('is-invalid'); submit.disabled = true; return false; }
+          errEl.textContent = '';
+          input.classList.remove('is-invalid');
+          submit.disabled = false;
+          return true;
+        };
+        validate();
+        input.addEventListener('input', validate);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter' && validate()) submit.click(); });
+        modal.querySelector('#addProfileCancel').addEventListener('click', closeModal);
+        submit.addEventListener('click', async () => {
+          if (!validate()) return;
+          submit.disabled = true;
+          try {
+            await doAddProfile(Number(input.value));
+          } catch (err) {
+            errEl.textContent = err.message || 'Failed to add profile.';
+            submit.disabled = false;
+          }
+        });
+      });
+    }
+
+    function openDeleteProfileModal() {
+      const id = state.editingProfileId;
+      openModal(`
+        <div class="modal" role="dialog" aria-labelledby="deleteProfileTitle">
+          <h2 class="modal__title" id="deleteProfileTitle">Delete Profile ${id}?</h2>
+          <div class="modal__body">This cannot be undone.</div>
+          <div class="modal__footer">
+            <button class="btn btn--secondary" id="delCancel">Cancel</button>
+            <button class="btn btn--danger-solid" id="delConfirm">Delete</button>
+          </div>
+        </div>
+      `, modal => {
+        modal.querySelector('#delCancel').addEventListener('click', closeModal);
+        modal.querySelector('#delConfirm').addEventListener('click', doDeleteProfile);
+      });
+    }
+
+    function openUnsavedGuardModal({ onSave, onDiscard, onCancel }) {
+      openModal(`
+        <div class="modal" role="dialog" aria-labelledby="guardTitle">
+          <h2 class="modal__title" id="guardTitle">You have unsaved changes</h2>
+          <div class="modal__body">Save them before leaving, or discard to lose your edits.</div>
+          <div class="modal__footer modal__footer--spread">
+            <button class="btn btn--danger" id="guardDiscard">Discard</button>
+            <div style="display:flex; gap: var(--space-sm);">
+              <button class="btn btn--secondary" id="guardCancel">Cancel</button>
+              <button class="btn btn--primary" id="guardSave">Save</button>
+            </div>
+          </div>
+        </div>
+      `, modal => {
+        modal.querySelector('#guardSave').addEventListener('click', onSave);
+        modal.querySelector('#guardDiscard').addEventListener('click', onDiscard);
+        modal.querySelector('#guardCancel').addEventListener('click', onCancel);
+      });
+    }
+
+    /* ============================================================
+       TOASTS
+       ============================================================ */
+    function toastIcon(variant) {
+      if (variant === 'success') return ICON.checkCircle;
+      if (variant === 'error')   return ICON.alert;
+      return ICON.info;
+    }
+    function showToast(message, variant = 'default', duration = 4000) {
+      const el = document.createElement('div');
+      el.className = `toast ${variant === 'success' ? 'toast--success' : variant === 'error' ? 'toast--error' : ''}`;
+      el.innerHTML = `
+        <span class="toast__icon" aria-hidden="true">${toastIcon(variant)}</span>
+        <span class="toast__body">${message}</span>
+        <button class="toast__close" aria-label="Dismiss">${ICON.close}</button>`;
+      el.querySelector('.toast__close').addEventListener('click', () => el.remove());
+      els.toastStack.appendChild(el);
+      setTimeout(() => { el.remove(); }, duration);
+    }
+    function showUndoToast(message, onUndo) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.innerHTML = `
+        <span class="toast__icon" aria-hidden="true">${ICON.info}</span>
+        <span class="toast__body">${message}</span>
+        <button class="toast__action">Undo</button>
+        <button class="toast__close" aria-label="Dismiss">${ICON.close}</button>`;
+      let undone = false;
+      el.querySelector('.toast__action').addEventListener('click', () => {
+        undone = true;
+        onUndo();
+        el.remove();
+      });
+      el.querySelector('.toast__close').addEventListener('click', () => el.remove());
+      els.toastStack.appendChild(el);
+      setTimeout(() => { if (!undone) el.remove(); }, 5000);
+    }
+
+    /* ============================================================
+       BOOT
+       ============================================================ */
+    async function bootLoadList() {
+      state.page = 'loading';
+      renderPanel();
+      try {
+        const res = await api.fetchProfiles();
+        state.profiles = res.profiles;
+        state.selectedProfileId = res.selected_profile_id;
+        state.page = state.profiles.length === 0 ? 'empty' : 'list';
+        state.listState = state.profiles.length === 0 ? 'empty' : 'populated';
+        renderPanel();
+      } catch (err) {
+        state.page = 'list';
+        state.listState = 'error';
+        state.listError = 'Failed to load profiles — ' + (err.message || 'please try again.');
+        renderPanel();
+      }
+    }
+
+    /* ============================================================
+       TABS
+       ============================================================ */
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('is-active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        const panel = document.querySelector(`[data-tab-panel="${tab.dataset.tab}"]`);
+        if (panel) panel.classList.add('is-active');
+      });
+    });
+
+    document.getElementById('dialogCloseBtn').addEventListener('click', () => {
+      if (state.page === 'edit' && isDirty()) {
+        openUnsavedGuardModal({
+          onSave: async () => { closeModal(); await doSave(); },
+          onDiscard: () => { closeModal(); /* In a real app would close the whole dialog */ showToast('Dialog closed (demo)', 'default'); },
+          onCancel: () => closeModal()
+        });
+      } else {
+        showToast('Dialog closed (demo)', 'default');
+      }
+    });
+
+    window.addEventListener('resize', () => { if (state.page === 'edit') renderCharts(); });
+
+    /* ============================================================
+       DEV PANEL — QA state toggles (dropdown)
+       ============================================================ */
+    const devPanel = document.getElementById('devPanel');
+    const devTrigger = document.getElementById('devTrigger');
+    const devMenu = document.getElementById('devMenu');
+    const devCurrentLabel = document.getElementById('devCurrentLabel');
+
+    function setDevOpen(open) {
+      devPanel.classList.toggle('is-open', open);
+      devTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    devTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setDevOpen(!devPanel.classList.contains('is-open'));
+    });
+    document.addEventListener('click', (e) => {
+      if (!devPanel.contains(e.target)) setDevOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setDevOpen(false);
+    });
+
+    devPanel.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-dev]');
+      if (!btn) return;
+      const mode = btn.dataset.dev;
+      // Reflect selection in the trigger label and active state in the menu.
+      devCurrentLabel.textContent = btn.dataset.label || btn.textContent.trim();
+      devMenu.querySelectorAll('.dev-panel__btn').forEach(b => b.classList.toggle('is-active', b === btn));
+      setDevOpen(false);
+      switch (mode) {
+        case 'populated':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          state.page = 'list'; state.listState = 'populated';
+          state.listError = null; state.editError = null; state.editingProfileId = null;
+          renderPanel();
+          break;
+        case 'loading':
+          state.page = 'loading'; renderPanel();
+          break;
+        case 'empty':
+          state.profiles = []; state.page = 'empty'; state.listState = 'empty';
+          renderPanel();
+          break;
+        case 'select-error':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          state.page = 'list'; state.listState = 'error';
+          state.listError = 'Failed to select profile — server returned 500.';
+          renderPanel();
+          break;
+        case 'edit':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          navigateToEdit(1); // edit a non-active profile so Delete is enabled
+          break;
+        case 'edit-dirty':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          navigateToEdit(1);
+          state.editingTable[0].rpm = 118;
+          renderPanel();
+          break;
+        case 'edit-invalid':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          navigateToEdit(1);
+          state.editingTable[0].rpm = 9999; // out of range
+          renderPanel();
+          break;
+        case 'edit-saving':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          navigateToEdit(1);
+          state.editingTable[0].rpm = 118;
+          state.editState = 'saving';
+          renderPanel();
+          break;
+        case 'edit-save-error':
+          state.profiles = clone(initialSample); state.selectedProfileId = 0;
+          navigateToEdit(1);
+          state.editingTable[0].rpm = 118;
+          state.editState = 'save-error';
+          state.editError = 'Save failed — server returned 503 Service Unavailable.';
+          renderPanel();
+          break;
+      }
+    });
+
+    /* Delegated list click — catches Details + row-select on both the
+       Selected group and the Other Profiles group. Attached once. */
+    els.panel.addEventListener('click', onListClick);
+
+    /* Kick off */
+    bootLoadList();
+  </script>
+</body>
+</html>

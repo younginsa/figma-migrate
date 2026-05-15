@@ -1,0 +1,3724 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>figma-migrate plugin — v0.1 panel mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <!-- html2canvas: DOM-to-image renderer used by the DS Candidate
+       picker. Loaded from CDN; the cdn.jsdelivr.net domain is
+       declared in manifest.json's networkAccess.allowedDomains. -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    /* ==========================================================
+       HiNAS Cloud / Day mode tokens — for plugins inside Figma
+       (Figma's UI is light by default; the plugin panel mirrors
+       the host surface, not HiNAS Control's Dusk dark.)
+       ========================================================== */
+    :root {
+      --bg-page:        #EDEDF0;     /* canvas / Figma surface */
+      --bg-panel:       #FFFFFF;     /* plugin panel */
+      --bg-elevated:    #FAFAFB;     /* cards inside panel */
+      --bg-row-hover:   #F2F4F7;
+      --bg-input:       #FFFFFF;
+      --bg-overlay:     rgba(20, 22, 28, 0.4);
+
+      --border-default: #DFE1E6;
+      --border-subtle:  #ECEEF1;
+      --border-emphasis:#C0C4CC;
+
+      --text-primary:   #1F2024;
+      --text-secondary: #4D505B;
+      --text-muted:     #8A8E99;
+      --text-emphasis:  #0E0F12;
+      --text-on-primary:#FFFFFF;
+
+      --primary:        #1379F3;
+      --primary-hover:  #348FF4;
+      --primary-subtle: #E4F0FE;
+
+      --success:        #2BB46D;
+      --success-subtle: #E6F6EE;
+      --warning:        #F4810C;
+      --warning-subtle: #FDF1E2;
+      --danger:         #FF4141;
+      --danger-subtle:  #FEE7E7;
+
+      --font:           "Inter", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      --font-mono:      "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 10px;
+
+      --shadow-panel: 0 1px 3px rgba(15, 17, 22, 0.06), 0 8px 24px rgba(15, 17, 22, 0.08);
+      --shadow-modal: 0 12px 32px rgba(15, 17, 22, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text-primary);
+      background: var(--bg-page);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ==========================================================
+       Page chrome — stakeholder review canvas
+       ========================================================== */
+    .doc {
+      max-width: 2280px;
+      margin: 0 auto;
+      padding: 56px 48px 96px;
+    }
+    .doc__header { margin-bottom: 48px; }
+    .doc__eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 0 0 8px;
+    }
+    .doc__title {
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text-emphasis);
+      margin: 0 0 12px;
+    }
+    .doc__subtitle {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin: 0;
+    }
+    .doc__meta {
+      margin-top: 24px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .doc__meta-item strong {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .strip {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 32px;
+      overflow-x: auto;
+      padding: 16px 4px 24px;
+      align-items: flex-start;
+    }
+    .strip::-webkit-scrollbar { height: 8px; }
+    .strip::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+
+    .strip__cell {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .strip__label {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding-left: 4px;
+    }
+    .strip__num {
+      font: 600 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .strip__caption {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    /* ==========================================================
+       Plugin panel — 360 wide, sized like a real Figma plugin
+       ========================================================== */
+    .panel {
+      width: 360px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-panel);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .panel--tall { min-height: 640px; }
+
+    .panel__topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      min-height: 40px;
+    }
+    .panel__back {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .panel__back:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+    .panel__title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .panel__topbar-meta {
+      font: 500 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .panel__close {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .panel__close:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+
+    .panel__body {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel__footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .panel__footer--right { justify-content: flex-end; }
+
+    /* Status banner (DS sync, etc.) */
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+    .banner--success { background: var(--success-subtle); color: #1A6E45; }
+    .banner--warning { background: var(--warning-subtle); color: #8B4A07; }
+    .banner--info    { background: var(--primary-subtle); color: #0F4F9E; }
+    .banner--error   { background: var(--danger-subtle); color: #8B2424; }
+    .banner__icon {
+      flex: 0 0 16px;
+      display: inline-grid;
+      place-items: center;
+    }
+    .banner__body { flex: 1; }
+    /* Small chip inside the banner, used to show DS source type (Page / Library) */
+    .banner__source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      margin: 0 4px 0 0;
+      border-radius: 999px;
+      font: 600 10px/1.4 var(--font);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      background: rgba(0,0,0,0.08);
+      color: inherit;
+    }
+    .banner__action {
+      background: transparent;
+      border: 0;
+      font: 600 12px/1 var(--font);
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    /* Generic section card */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .card__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .card__head--static { cursor: default; }
+    .card__count {
+      display: inline-grid;
+      place-items: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 11px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      font: 600 11px/1 var(--font);
+      color: var(--text-secondary);
+    }
+    .card__title {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .card__chev {
+      color: var(--text-muted);
+      transform: rotate(0deg);
+      transition: transform 120ms ease;
+    }
+    .card--open .card__chev { transform: rotate(180deg); }
+    .card .card__body { display: none; }
+    .card--open .card__body { display: block; }
+    .card__body {
+      padding: 4px 12px 12px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .card__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .card__list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .card__list-item:last-child { border-bottom: 0; }
+    .card__list-item-name { color: var(--text-primary); flex: 1; }
+    .card__list-item-meta { font: 500 11px/1.4 var(--font-mono); color: var(--text-muted); }
+    .pill {
+      display: inline-grid;
+      place-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font: 600 10px/1.4 var(--font);
+      letter-spacing: 0.02em;
+    }
+    .pill--demo    { background: var(--bg-row-hover); color: var(--text-muted); }
+    .pill--demo-included { background: var(--primary-subtle); color: #0F4F9E; }
+    .pill--excluded { background: var(--bg-row-hover); color: var(--text-muted); }
+    .pill--auto    { background: var(--success-subtle); color: #1A6E45; }
+    .pill--review  { background: var(--warning-subtle); color: #8B4A07; }
+    .pill--candidate{ background: var(--primary-subtle); color: #0F4F9E; }
+
+    /* Coverage table (Screen 3) */
+    .coverage {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+    }
+    .coverage__row {
+      display: grid;
+      grid-template-columns: 1fr auto 14px;
+      gap: 4px 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      align-items: start;
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+    .coverage__row:last-child { border-bottom: 0; }
+    .coverage__row:hover { background: var(--bg-row-hover); }
+    .coverage__row::after {
+      content: "";
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+      width: 14px;
+      height: 14px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8E99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'/></svg>");
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .coverage__row--expanded {
+      cursor: default;
+      background: var(--bg-row-hover);
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-md);
+      margin: 4px 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      grid-template-columns: none;
+      gap: 0;
+    }
+    .coverage__row--expanded:hover { background: var(--bg-row-hover); }
+    .coverage__row--expanded::after { display: none; }
+    .coverage__row--expanded .coverage__head {
+      display: grid;
+      grid-template-columns: 1fr auto 14px;
+      gap: 4px 12px;
+      padding: 10px 12px;
+      align-items: start;
+    }
+    .coverage__toggle {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: center;
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-grid;
+      place-items: center;
+    }
+    .coverage__toggle svg {
+      display: block;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+    .coverage__toggle--open svg { transform: rotate(90deg); }
+    .coverage__toggle:hover { color: var(--text-emphasis); }
+    .coverage__detail {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .coverage__detail-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 12px 0 0;
+    }
+    .coverage__detail-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .coverage__detail-list li {
+      display: flex;
+      gap: 8px;
+      padding: 6px 8px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-sm);
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-primary);
+    }
+    .coverage__detail-list li code { color: var(--text-muted); }
+    .coverage__overrides {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .coverage__detail-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* Mapping-detail sub-section — appears when "Map to existing DS" is picked */
+    .mapping-detail {
+      margin-top: 4px;
+      padding: 12px;
+      background: var(--primary-subtle);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(19, 121, 243, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mapping-detail__header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .mapping-detail__icon {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--primary);
+      margin-top: 1px;
+    }
+    .mapping-detail__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0 0 2px;
+    }
+    .mapping-detail__body {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .mapping-detail .choice {
+      background: var(--bg-panel);
+    }
+
+    /* Nested variant — sub-options live inside the parent .choice card itself */
+    .choice > div { flex: 1; min-width: 0; }
+    .mapping-detail--nested {
+      margin-top: 12px;
+      margin-left: -26px;
+      margin-right: -26px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+    }
+    .mapping-detail--nested .coverage__overrides {
+      margin-top: 10px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      gap: 6px;
+    }
+    .mapping-detail--nested .choice {
+      background: var(--bg-panel);
+    }
+    .mapping-detail--nested .choice--selected {
+      background: var(--bg-panel);
+      border-color: var(--primary);
+    }
+
+    /* Toast list demo-excluded state */
+    .card__list-item--excluded .card__list-item-name {
+      color: var(--text-muted);
+      text-decoration: line-through;
+    }
+    .card__list-item--clickable {
+      cursor: pointer;
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: var(--radius-sm);
+      transition: background 120ms ease;
+    }
+    .card__list-item--clickable:hover { background: var(--bg-row-hover); }
+
+    /* Inline dropdown (target page picker) */
+    .scene--dropdown .panel,
+    .scene--dropdown .panel__body { overflow: visible; }
+    .field-row--dropdown-host { position: relative; }
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      width: 232px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-modal);
+      padding: 4px;
+      z-index: 5;
+    }
+    .dropdown__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .dropdown__item:hover { background: var(--bg-row-hover); }
+    .dropdown__item--selected { color: var(--primary); font-weight: 500; }
+    .dropdown__check {
+      width: 14px;
+      height: 14px;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 14px;
+    }
+    .dropdown__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 6px;
+    }
+    .dropdown__item--create { color: var(--primary); }
+    .dropdown__create-form {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      align-items: center;
+    }
+    .dropdown__input {
+      flex: 1;
+      min-width: 0;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      font: 500 12px/1 var(--font);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(19, 121, 243, 0.18);
+    }
+    .dropdown__create-form .btn {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    /* Inline spinner inside button (processing state) */
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Field-row select pattern — clickable, opens a dropdown */
+    .field-row--select {
+      cursor: pointer;
+      transition: background 120ms ease;
+    }
+    .field-row--select:hover { background: var(--bg-row-hover); border-radius: var(--radius-sm); }
+    .field-row__value {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .field-row__caret {
+      display: inline-grid;
+      place-items: center;
+      color: var(--text-muted);
+    }
+    .coverage__name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .coverage__meta {
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+    .coverage__sub {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .coverage__sub--warn { color: #8B4A07; }
+    .coverage__action {
+      grid-row: 1;
+      grid-column: 2;
+      align-self: start;
+      display: flex;
+      align-items: center;
+    }
+    .candidates-card {
+      border: 1px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: var(--bg-elevated);
+    }
+    .candidates-card__title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 6px;
+    }
+    .candidates-card__list {
+      margin: 0;
+      padding: 0 0 0 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    /* Reset to flex so we can lay out name + upload button + status inline */
+    .candidates-card__list { list-style: none; padding-left: 0; }
+    .candidates-card__list li {
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .candidates-card__list-name { flex: 1; min-width: 0; word-break: break-word; }
+    .candidates-card__upload-btn {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      font: 500 11px/1.4 var(--font);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .candidates-card__upload-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .candidates-card__upload-status {
+      flex: 0 0 auto;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    /* ==========================================================
+       Mapping sections (Screen 03 — System states / Modals / Toasts).
+       Each section: header with count, then a list of source→variant
+       rows. Each row shows the parsed source on the left and a select
+       dropdown for the DS variant on the right.
+       ========================================================== */
+    .mapping-section {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-secondary, #fafafa);
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: var(--radius-md, 6px);
+    }
+    .mapping-section__title {
+      margin: 0 0 8px;
+      font: 600 12px/1.4 var(--font);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mapping-section__count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      background: var(--text-primary);
+      color: #fff;
+      border-radius: 9px;
+      font: 600 10px/1 var(--font);
+    }
+    .mapping-section__empty {
+      margin: 0;
+      padding: 4px 0;
+      font: 400 11px/1.4 var(--font);
+      color: var(--text-muted);
+    }
+    .mapping-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--border-subtle, #ececef);
+    }
+    .mapping-row:first-child { border-top: 0; }
+    .mapping-row__source {
+      flex: 1;
+      min-width: 0;
+      font: 500 11px/1.4 var(--font-mono, monospace);
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mapping-row__source--small {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .mapping-row__select {
+      flex: 0 0 auto;
+      max-width: 200px;
+      padding: 3px 6px;
+      font: 500 11px/1.4 var(--font);
+      color: var(--text-primary);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .mapping-row__select:focus { outline: 1px solid var(--primary); }
+
+    /* ==========================================================
+       Picker overlay — full-window takeover for element picking.
+       Plugin UI resizes to ~1400x900 when this is active.
+       ========================================================== */
+    .picker-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      display: flex;
+      flex-direction: column;
+      background: #1a1c20;
+    }
+    .picker-overlay[hidden] { display: none; }
+    .picker-overlay__topbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+      background: #2a2d33;
+      color: #fff;
+      font: 500 13px/1.4 var(--font);
+      border-bottom: 1px solid #1a1c20;
+    }
+    .picker-overlay__title { flex: 0 0 auto; }
+    .picker-overlay__title strong { font-weight: 600; color: #4ec3ff; }
+    .picker-overlay__hint {
+      flex: 1;
+      color: #b0b3b8;
+      font-size: 12px;
+    }
+    .picker-overlay__btn {
+      padding: 6px 14px;
+      font: 500 12px/1.2 var(--font);
+      border: 1px solid #4a4d54;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+      color: #fff;
+    }
+    .picker-overlay__btn--ghost:hover { background: #3a3d44; }
+    .picker-overlay__btn--primary {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+    .picker-overlay__btn--primary:hover { background: #1d4ed8; }
+    .picker-overlay__btn--primary:disabled {
+      background: #555;
+      border-color: #555;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .picker-overlay__stage {
+      flex: 1;
+      overflow: auto;
+      background: #fff;
+    }
+    .picker-overlay__iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
+
+    /* Stepper (Screen 4) */
+    .stepper {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stepper__item {
+      display: grid;
+      grid-template-columns: 24px 1fr auto;
+      gap: 10px;
+      padding: 8px 0;
+      align-items: center;
+    }
+    .stepper__dot {
+      grid-column: 1;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-default);
+      background: var(--bg-panel);
+      display: inline-grid;
+      place-items: center;
+      color: var(--bg-panel);
+      font-size: 11px;
+    }
+    .stepper__item--done .stepper__dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--bg-panel);
+    }
+    .stepper__item--active .stepper__dot {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .stepper__item--active .stepper__dot::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .stepper__name {
+      grid-column: 2;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .stepper__item--pending .stepper__name { color: var(--text-muted); font-weight: 400; }
+    .stepper__item--done .stepper__name { color: var(--text-secondary); }
+    .stepper__progress {
+      grid-column: 3;
+      font: 500 11px/1 var(--font-mono);
+      color: var(--text-muted);
+    }
+    .stepper__item--active .stepper__progress { color: var(--primary); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.85); }
+      50%      { opacity: 1;   transform: scale(1.1); }
+    }
+
+    .build-log {
+      background: #0E0F12;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font: 500 11px/1.65 var(--font-mono);
+      color: #ECEDF0;
+      max-height: 132px;
+      overflow-y: auto;
+    }
+    .build-log__line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .build-log__time { color: #8A8E99; margin-right: 8px; }
+    .build-log__line--ok span:nth-child(2) { color: var(--success); }
+    .build-log__line--running span:nth-child(2) { color: var(--primary); }
+    .build-log__line--warn span:nth-child(2) { color: var(--warning); }
+    .build-log__line--warn { color: #FFD993; white-space: normal; }
+
+    /* Done card (Screen 5) */
+    .done {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 24px 16px 8px;
+      gap: 12px;
+    }
+    .done__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--success-subtle);
+      color: var(--success);
+      display: grid;
+      place-items: center;
+    }
+    .done__title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+    }
+    .done__subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .done__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: left;
+    }
+    .done__list li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+    .done__list-num { font: 500 11px/1.4 var(--font-mono); color: var(--text-primary); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      font: 600 13px/1 var(--font);
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+      white-space: nowrap;
+    }
+    .btn--primary {
+      background: var(--primary);
+      color: var(--text-on-primary);
+    }
+    .btn--primary:hover { background: var(--primary-hover); }
+    .btn--primary[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn--secondary {
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      border-color: var(--border-default);
+    }
+    .btn--secondary:hover { background: var(--bg-row-hover); border-color: var(--border-emphasis); }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .btn--ghost:hover { background: var(--bg-row-hover); color: var(--text-emphasis); }
+    .btn--block { width: 100%; }
+    .btn--lg { height: 36px; padding: 0 16px; font-size: 13px; }
+    .btn--link {
+      background: transparent;
+      border: 0;
+      color: var(--primary);
+      font: 500 12px/1 var(--font);
+      padding: 0;
+      cursor: pointer;
+      height: auto;
+    }
+    .btn--link:hover { text-decoration: underline; }
+
+    /* Drop zone (Screen 1) */
+    .drop {
+      border: 1.5px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 24px 16px;
+      text-align: center;
+      background: var(--bg-elevated);
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .drop--active {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .drop__icon {
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 8px;
+      color: var(--text-muted);
+    }
+    .drop__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 2px;
+    }
+    .drop__subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0 0 12px;
+    }
+    .drop__divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 12px 0;
+    }
+    .drop__divider::before,
+    .drop__divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: var(--border-subtle);
+    }
+    textarea.code {
+      display: block;
+      width: 100%;
+      min-height: 156px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      font: 500 11px/1.5 var(--font-mono);
+      color: var(--text-primary);
+      resize: vertical;
+    }
+    textarea.code:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(19, 121, 243, 0.18);
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 0;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Modal overlay (gate confirm) */
+    .scene {
+      position: relative;
+      isolation: isolate;
+    }
+    .scene__overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-overlay);
+      border-radius: var(--radius-lg);
+      pointer-events: none;
+    }
+    .modal {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-modal);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0;
+    }
+    .modal__body {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+    .modal__choices {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    .choice {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      align-items: flex-start;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .choice:hover {
+      background: var(--bg-row-hover);
+      border-color: var(--border-emphasis);
+    }
+    .choice--selected,
+    .choice--selected:hover {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .mapping-detail--nested .choice:hover {
+      background: var(--bg-row-hover);
+      border-color: var(--border-emphasis);
+    }
+    .mapping-detail--nested .choice--selected,
+    .mapping-detail--nested .choice--selected:hover {
+      background: var(--bg-panel);
+      border-color: var(--primary);
+    }
+    .choice__radio {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--border-emphasis);
+      border-radius: 50%;
+      margin-top: 2px;
+      position: relative;
+      background: var(--bg-panel);
+    }
+    .choice--selected > .choice__radio {
+      border-color: var(--primary);
+    }
+    .choice--selected > .choice__radio::after {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+    /* Right-side chevron — fold/unfold affordance on expandable choices */
+    .choice__chev {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--text-muted);
+      margin-top: 2px;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+    .choice--selected > .choice__chev {
+      color: var(--primary);
+      transform: rotate(180deg);
+    }
+    .choice__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 2px;
+    }
+    .choice__detail {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .modal__footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    /* Helper text & footnotes for the doc */
+    .strip__cell-note {
+      width: 360px;
+      padding: 0 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .legend {
+      margin-top: 64px;
+      padding: 24px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+    }
+    .legend__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-emphasis);
+      margin: 0 0 12px;
+    }
+    .legend__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+    .legend__grid h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 0 0 6px;
+    }
+    .legend__grid p { margin: 0 0 8px; }
+
+    /* Inline icons (lucide-style strokes) */
+    svg.icon { display: block; }
+
+    /* ==========================================================
+       Plugin-mode overrides — running inside Figma's plugin iframe
+       Production view: one screen, panel fills iframe, no preview chrome.
+       ========================================================== */
+    html, body {
+      height: 100vh;
+      overflow: hidden;
+    }
+    body {
+      padding: 0;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+    }
+    .doc {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      min-height: 0;
+    }
+    .doc__header,
+    .legend { display: none; }
+    .strip {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+      min-height: 0;
+      min-width: 0;
+      padding: 0;
+      gap: 0;
+    }
+    .strip__cell {
+      display: none;
+      grid-column: 1;
+      grid-row: 1;
+      min-height: 0;
+      min-width: 0;
+    }
+    .strip__cell.is-active {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      min-height: 0;
+    }
+    .strip__label,
+    .strip__cell-note { display: none; }
+    .strip__cell .panel {
+      width: auto;
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+    }
+    .strip__cell .panel__body {
+      overflow-y: auto;
+      /* height set in pixels by JS (sizePanelBody) — see script tag at end */
+    }
+    /* Prevent flex children from compressing inside panel__body.
+       Cards with overflow:hidden would otherwise be shrunk to fit
+       the body's fixed height, hiding their content instead of letting
+       the body overflow and scroll. */
+    .strip__cell .panel__body > * { flex-shrink: 0; }
+
+    /* Show mapping-detail only when its parent choice is selected.
+       Lets multiple choices each have their own sub-section in DOM;
+       only the selected choice's sub-section renders. */
+    .coverage__overrides > .choice > div > .mapping-detail--nested { display: none; }
+    .coverage__overrides > .choice--selected > div > .mapping-detail--nested { display: flex; }
+
+    /* Auto rows (with pill--auto) have no expandable options — kill the
+       right chevron, the pointer cursor, and the hover affordance. */
+    .coverage__row:has(.pill--auto)::after { display: none; }
+    .coverage__row:has(.pill--auto) { cursor: default; }
+    .coverage__row:has(.pill--auto):hover { background: transparent; border-color: var(--border-subtle); }
+  </style>
+</head>
+<body>
+  <input type="file" id="fileInput" accept=".html,text/html" style="display: none;">
+  <div class="doc">
+    <header class="doc__header">
+      <p class="doc__eyebrow">v0.1 Plugin UI · Mockup</p>
+      <h1 class="doc__title">Figma-migrate — plugin panel</h1>
+      <p class="doc__subtitle">
+        Five core screens for the deterministic-only MVP, plus one gate-modal example.
+        Real data from the 2026-05-08 pre-flight on <code>cpp-setting-tab-mockup.html</code>.
+        Panel sized at 360 px to match Figma's plugin sandbox; styled in HiNAS Cloud / Day-mode tokens
+        because plugins render against Figma's own light surface, not Control's Dusk dark.
+      </p>
+      <div class="doc__meta">
+        <div class="doc__meta-item"><strong>Author:</strong> Avikus Product Design</div>
+        <div class="doc__meta-item"><strong>Drafted:</strong> 2026-05-08</div>
+        <div class="doc__meta-item"><strong>Spec:</strong> figma-migrate-plugin-mvp-spec.md</div>
+        <div class="doc__meta-item"><strong>Status:</strong> Draft for stakeholder review</div>
+      </div>
+    </header>
+
+    <section class="strip">
+
+      <!-- ============================================================
+           Screen 1 — Paste HTML (empty state)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">01</span><span class="strip__caption">Paste HTML</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Figma-migrate</h2>
+            <span class="panel__topbar-meta">v0.1</span>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Turn HTML mockups into design-system-backed Figma artboards.
+            </p>
+
+            <div class="drop">
+              <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                <path d="M12 17v-6M9 14l3-3 3 3"/>
+              </svg>
+              <p class="drop__title">Drop a .html file here</p>
+              <p class="drop__subtitle">or</p>
+              <button class="btn btn--secondary">Choose file</button>
+              <div class="drop__divider"><span>or paste HTML below</span></div>
+            </div>
+
+            <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>"></textarea>
+
+            <div class="field-row field-row--select field-row--dropdown-host" id="targetPageRow">
+              <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+              <span class="field-row__value">
+                <span style="font:500 12px/1 var(--font-mono); color:var(--text-secondary);" id="targetPageLabel">Claude output</span>
+                <span class="field-row__caret">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </span>
+              <div class="dropdown" id="targetPageDropdown" style="display: none;">
+                <!-- Pages list populated by JS, inserted before the divider -->
+                <div class="dropdown__divider" id="dropdownDivider"></div>
+                <div class="dropdown__item dropdown__item--create" id="dropdownCreate">
+                  <span class="dropdown__check">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </span>
+                  Create new page…
+                </div>
+                <div class="dropdown__create-form" id="dropdownCreateForm" style="display: none;">
+                  <input type="text" class="dropdown__input" id="dropdownCreateInput" placeholder="Page name">
+                  <button class="btn btn--primary" id="dropdownCreateSubmit">Create</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Empty state. <strong>Parse</strong> stays disabled until HTML is pasted or a file is dropped. The
+          <strong>Target page</strong> row is itself a dropdown — clicking it opens the page picker (Screen 08).
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 2 — Parse preview
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">02</span><span class="strip__caption">Parse preview</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+            <span class="panel__topbar-meta">2129 lines</span>
+          </div>
+          <div class="panel__body">
+            <div class="banner banner--success" id="dsSyncBanner">
+              <span class="banner__icon" id="dsSyncBannerIcon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="banner__body" id="dsSyncBannerBody">Checking DS sync…</span>
+            </div>
+
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Here's the structure parsed from your HTML. Click any section to inspect the items.
+            </p>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">9</span>
+                <span class="card__title">States</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Loading</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Empty</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Populated</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Select error</span><span class="card__list-item-meta">Page 1</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · dirty</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · invalid</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · saving</span><span class="card__list-item-meta">Page 2</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Edit · save error</span><span class="card__list-item-meta">Page 2</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">4</span>
+                <span class="card__title">Modals</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openSelectConfirmModal()</span><span class="card__list-item-meta">Confirm</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openAddProfileModal()</span><span class="card__list-item-meta">input field</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openDeleteProfileModal()</span><span class="card__list-item-meta">Confirm</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">openUnsavedGuardModal()</span><span class="card__list-item-meta">Confirm · 3-btn</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card card--open">
+              <div class="card__head">
+                <span class="card__count">4</span>
+                <span class="card__title">Toasts</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list">
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Profile saved</span><span class="card__list-item-meta">success</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Profile {id} deleted</span><span class="card__list-item-meta">success</span></li>
+                  <li class="card__list-item card__list-item--clickable"><span class="card__list-item-name">Row deleted (+ Undo)</span><span class="card__list-item-meta">failed-action</span></li>
+                  <li class="card__list-item card__list-item--clickable card__list-item--excluded">
+                    <span class="card__list-item-name">Dialog closed (demo)</span>
+                    <span class="pill pill--demo">Demo only</span>
+                  </li>
+                </ul>
+                <p style="margin:8px 0 0; font-size:11px; color:var(--text-muted); line-height:1.5;">
+                  Click any row to include or exclude. Demo-marker toasts (<code>(demo)</code>, <code>placeholder</code>, <code>todo</code>) auto-exclude by default.
+                </p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <span class="card__count">7</span>
+                <span class="card__title">DS components used</span>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="card__body">
+                <ul class="card__list"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary">Cancel</button>
+            <button class="btn btn--primary btn--lg">Review DS mapping →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Sections collapse. <strong>Demo-only toasts</strong> are auto-excluded; the visual state on the row says so.
+          Clicking any row opens the per-row override (same Option-C pattern as Screen 03's coverage table).
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 3 — DS coverage review
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">03</span><span class="strip__caption">DS coverage review</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+            <button class="panel__close" aria-label="Help">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm the DS variant for each parsed item. Auto-suggested values are pre-filled; change any dropdown if the suggestion isn't right. Build will use these choices.
+            </p>
+
+            <div class="mapping-section" id="mappingSystemStates">
+              <h3 class="mapping-section__title">
+                System states
+                <span class="mapping-section__count" id="mappingSystemStatesCount">0</span>
+              </h3>
+              <div class="mapping-section__list" id="mappingSystemStatesList">
+                <p class="mapping-section__empty">No system states detected in HTML.</p>
+              </div>
+            </div>
+
+            <div class="mapping-section" id="mappingModals">
+              <h3 class="mapping-section__title">
+                Modals
+                <span class="mapping-section__count" id="mappingModalsCount">0</span>
+              </h3>
+              <div class="mapping-section__list" id="mappingModalsList">
+                <p class="mapping-section__empty">No modals detected in HTML.</p>
+              </div>
+            </div>
+
+            <div class="mapping-section" id="mappingToasts">
+              <h3 class="mapping-section__title">
+                Toasts
+                <span class="mapping-section__count" id="mappingToastsCount">0</span>
+              </h3>
+              <div class="mapping-section__list" id="mappingToastsList">
+                <p class="mapping-section__empty">No toasts detected in HTML.</p>
+              </div>
+            </div>
+
+            <div class="candidates-card">
+              <h3 class="candidates-card__title">
+                <span class="pill pill--candidate">DS candidates</span>
+                <span>9 structures not in the DS</span>
+              </h3>
+              <ul class="candidates-card__list">
+                <li><span class="candidates-card__list-name">Profile row — Selected (check + Details)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Profile row — Other (Details on hover)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Profile row — + Add Profile (dashed)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Inline banner (red error · blue info)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Editable data table with cell error tooltip</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Insert-row pill (between rows + bottom)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Chart card</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">Editor footer bar (3-button spread)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+                <li><span class="candidates-card__list-name">40 px Button (between DS sizes 36 and 48)</span><button class="candidates-card__upload-btn" type="button">Pick element</button><span class="candidates-card__upload-status" hidden>✓</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The central review gate. Rows are individually clickable for per-row drill-down (see Screen 07 for the
+          expanded state). Two warnings the parser can detect — 3-button modal, Button size mismatch — surface
+          inline rather than mid-build.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 4 — Build progress
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">04</span><span class="strip__caption">Build progress</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Building artboards…</h2>
+            <span class="panel__topbar-meta">5 / 17</span>
+          </div>
+          <div class="panel__body">
+            <ol class="stepper">
+              <li class="stepper__item stepper__item--done">
+                <span class="stepper__dot">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="stepper__name">Pre-flight · DS sync, parse, coverage</span>
+                <span class="stepper__progress">3.2 s</span>
+              </li>
+              <li class="stepper__item stepper__item--done">
+                <span class="stepper__dot">
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="stepper__name">Defaults · placement, naming</span>
+                <span class="stepper__progress">0.4 s</span>
+              </li>
+              <li class="stepper__item stepper__item--active">
+                <span class="stepper__dot"></span>
+                <span class="stepper__name">Building artboards</span>
+                <span class="stepper__progress">5 / 17</span>
+              </li>
+              <li class="stepper__item stepper__item--pending">
+                <span class="stepper__dot"></span>
+                <span class="stepper__name">DS Candidate band</span>
+                <span class="stepper__progress">9 items</span>
+              </li>
+            </ol>
+
+            <div class="build-log">
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:08</span><span>✓</span> Setting · CCP · Loading</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:11</span><span>✓</span> Setting · CCP · Empty</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:14</span><span>✓</span> Setting · CCP · Populated</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:18</span><span>✓</span> Setting · CCP · Select error</div>
+              <div class="build-log__line build-log__line--ok"><span class="build-log__time">14:23:21</span><span>✓</span> Setting · CCP · Edit</div>
+              <div class="build-log__line build-log__line--running"><span class="build-log__time">14:23:24</span><span>⏳</span> Setting · CCP · Edit · dirty</div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary">Cancel</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The stepper shows phase-only; the log scroll lists individual artboards as they land. If a gate fires
+          (DS conflict), it overlays this screen — see screen 06 — without aborting the run.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 5 — Done
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">05</span><span class="strip__caption">Done</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <h2 class="panel__title">Done</h2>
+            <span class="panel__topbar-meta">52 s</span>
+          </div>
+          <div class="panel__body">
+            <div class="done">
+              <div class="done__icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <h3 class="done__title">Built 17 artboards</h3>
+              <p class="done__subtitle">on <strong style="color:var(--text-secondary);">Claude output</strong></p>
+            </div>
+
+            <ul class="done__list">
+              <li><span>System-state screens</span><span class="done__list-num">4</span></li>
+              <li><span>Modal / state screens</span><span class="done__list-num">9</span></li>
+              <li><span>Toast screens</span><span class="done__list-num">4</span></li>
+              <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
+              <li><span>DS Suggestions</span><span class="done__list-num">0</span></li>
+            </ul>
+
+            <button class="btn btn--primary btn--lg btn--block">Show on canvas</button>
+            <button class="btn btn--ghost btn--block">Run again with new HTML</button>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--link">Copy summary</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          <strong>View band</strong> jumps the canvas to the band origin. <strong>Run again</strong> resets
+          the panel to screen 1, keeping the same target page selection.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 6 — DS Conflict gate (modal overlay on Screen 4)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">06</span><span class="strip__caption">Gate · DS conflict</span></div>
+        <div class="scene">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Building artboards…</h2>
+              <span class="panel__topbar-meta">9 / 17</span>
+            </div>
+            <div class="panel__body" style="opacity:0.55;">
+              <ol class="stepper">
+                <li class="stepper__item stepper__item--done">
+                  <span class="stepper__dot"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="stepper__name">Pre-flight</span>
+                  <span class="stepper__progress">3.2 s</span>
+                </li>
+                <li class="stepper__item stepper__item--done">
+                  <span class="stepper__dot"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="stepper__name">Defaults</span>
+                  <span class="stepper__progress">0.4 s</span>
+                </li>
+                <li class="stepper__item stepper__item--active">
+                  <span class="stepper__dot"></span>
+                  <span class="stepper__name">Building artboards</span>
+                  <span class="stepper__progress">9 / 17</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+          <div class="scene__overlay"></div>
+          <div class="modal">
+            <h3 class="modal__title">DS conflict — Modal master</h3>
+            <p class="modal__body">
+              <code>Modal/type=input&nbsp;field</code> renders with a light fill in this dark-themed file.
+              The page may not have the DS dark mode set, or the master may be missing a dark mode value.
+            </p>
+            <div class="modal__choices">
+              <div class="choice choice--selected">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Set page variable mode to dark</p>
+                  <p class="choice__detail">Recommended. Fixes every Modal instance on this page in one move.</p>
+                </div>
+              </div>
+              <div class="choice">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Override fill on this instance only</p>
+                  <p class="choice__detail">Quick fix; creates one-off drift. Logged for the DS team to review.</p>
+                </div>
+              </div>
+              <div class="choice">
+                <span class="choice__radio"></span>
+                <div>
+                  <p class="choice__title">Skip this artboard</p>
+                  <p class="choice__detail">Resume the rest of the build; come back to this one later.</p>
+                </div>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button class="btn btn--ghost">Pause build</button>
+              <button class="btn btn--primary">Apply & continue</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Gate modals overlay the active screen rather than opening as separate routes. The build stays
+          paused but in-context — the user sees what's behind the question, not a blank confirmation.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 7 — Edit mapping row expanded (Option C drill-down)
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">07</span><span class="strip__caption">Row expanded · edit mapping</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">System states</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">renderLoadingPage, renderEmptyPage</span>
+              </div>
+
+              <!-- Expanded row (Modal) -->
+              <div class="coverage__row coverage__row--expanded">
+                <div class="coverage__head">
+                  <span class="coverage__name">Modal</span>
+                  <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                  <button class="coverage__toggle coverage__toggle--open" aria-label="Collapse">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                  <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+                </div>
+                <div class="coverage__detail">
+                  <p class="coverage__detail-section-label">HTML modals mapping here</p>
+                  <ul class="coverage__detail-list">
+                    <li><span>openSelectConfirmModal()</span><code>→ type=Confirm</code></li>
+                    <li><span>openAddProfileModal()</span><code>→ type=input field</code></li>
+                    <li><span>openDeleteProfileModal()</span><code>→ type=Confirm</code></li>
+                    <li><span>openUnsavedGuardModal()</span><code>→ type=Confirm · 3-btn</code></li>
+                  </ul>
+
+                  <p class="coverage__detail-section-label">Override</p>
+                  <div class="coverage__overrides">
+                    <div class="choice choice--selected">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Map to existing DS</p>
+                        <p class="choice__detail">Default. Reshape this pattern to fit what the DS already supports. Build matches the DS; some HTML structure may change. (Only the flagged instances reshape — compliant instances build normally.)</p>
+
+                        <!-- Sub-section nested inside the selected choice -->
+                        <div class="mapping-detail mapping-detail--nested">
+                          <div class="mapping-detail__header">
+                            <span class="mapping-detail__icon">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            </span>
+                            <div>
+                              <p class="mapping-detail__title">Unsaved guard modal: 3 buttons, DS Modal/Confirm: 2 buttons</p>
+                              <p class="mapping-detail__body">How should we reshape this modal to fit the DS?</p>
+                            </div>
+                          </div>
+                          <div class="coverage__overrides">
+                            <div class="choice choice--selected">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Save + Cancel · drop Discard</p>
+                                <p class="choice__detail">Removes the destructive Discard action. Users dismiss the modal with Cancel.</p>
+                              </div>
+                            </div>
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Save + Discard · drop Cancel</p>
+                                <p class="choice__detail">No explicit cancel button; users dismiss via the modal's × in the corner.</p>
+                              </div>
+                            </div>
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Two separate modals</p>
+                                <p class="choice__detail">Build two artboards: one Save/Cancel modal, one Discard/Cancel modal.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Create new UI</p>
+                        <p class="choice__detail">Build the flagged instances as a new UI pattern, auto-proposed as a DS Suggestion. You'll pick whether to build from scratch or extend an existing DS component.</p>
+
+                        <!-- Sub-section nested inside the choice — shown only when this choice is selected (CSS handles visibility) -->
+                        <div class="mapping-detail mapping-detail--nested">
+                          <div class="mapping-detail__header">
+                            <span class="mapping-detail__icon">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </span>
+                            <div>
+                              <p class="mapping-detail__title">Build approach for the new UI</p>
+                              <p class="mapping-detail__body">Should we build from scratch, or extend an existing DS component?</p>
+                            </div>
+                          </div>
+                          <div class="coverage__overrides">
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">From scratch</p>
+                                <p class="choice__detail">No DS components used. Build as a standalone artboard. Best when the HTML pattern doesn't resemble anything in the DS.</p>
+                              </div>
+                            </div>
+                            <div class="choice choice--selected">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Extend existing DS</p>
+                                <p class="choice__detail">Use a DS component as the base, hide non-applicable children, overlay the new pattern on top. E.g., a 3-button footer overlayed on Modal/Confirm's dual-CTA layout.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Skip in build</p>
+                        <p class="choice__detail">Don't generate artboards for the flagged instances.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="coverage__detail-actions">
+                    <button class="btn btn--ghost">Cancel</button>
+                    <button class="btn btn--primary">Apply</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">input</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.cell-input, .modal__field-input</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Clicking any row opens it inline (Option C). Three override choices: <strong>Map to existing DS</strong> (default),
+          <strong>Create new UI</strong>, or <strong>Skip in build</strong>. The selected choice <em>expands</em> to show
+          its sub-options nested inside (here: which button to drop from the unsaved-guard modal). Unselected choices
+          stay collapsed. Picking Create new UI collapses Map to existing DS and expands Create new UI with its build-approach
+          picker (Screen 11). All choices apply only to the flagged instances; compliant ones build normally.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 8 — Target page picker dropdown open
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">08</span><span class="strip__caption">Target page picker</span></div>
+        <div class="scene scene--dropdown">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Figma-migrate</h2>
+              <span class="panel__topbar-meta">v0.1</span>
+            </div>
+            <div class="panel__body">
+              <p style="margin:0; font-size:12px; color:var(--text-muted);">
+                Turn HTML mockups into design-system-backed Figma artboards.
+              </p>
+
+              <div class="drop">
+                <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                  <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                  <path d="M12 17v-6M9 14l3-3 3 3"/>
+                </svg>
+                <p class="drop__title">Drop a .html file here</p>
+                <p class="drop__subtitle">or</p>
+                <button class="btn btn--secondary">Choose file</button>
+              </div>
+
+              <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>" style="min-height:96px;"></textarea>
+
+              <div class="field-row field-row--select field-row--dropdown-host" style="background: var(--primary-subtle); border-radius: var(--radius-sm); padding: 8px 10px; border-top: 0;">
+                <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+                <span class="field-row__value">
+                  <span style="font:500 12px/1 var(--font-mono); color:var(--primary);">Claude output</span>
+                  <span class="field-row__caret" style="color:var(--primary);">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </span>
+                <div class="dropdown">
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Design system
+                  </div>
+                  <div class="dropdown__item dropdown__item--selected">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    Claude output
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Result
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Page 1
+                  </div>
+                  <div class="dropdown__divider"></div>
+                  <div class="dropdown__item dropdown__item--create">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </span>
+                    Create new page…
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel__footer panel__footer--right">
+              <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Inline dropdown over the field, anchored under it. Lists every page in the current Figma file via
+          <code>figma.root.children</code>; current target shows a blue check. Last item creates a new page,
+          prompts for a name inline (Screen 09), and selects it. Persists per-file via <code>figma.clientStorage</code>.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 9 — Create new page inline input
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">09</span><span class="strip__caption">Create new page · inline</span></div>
+        <div class="scene scene--dropdown">
+          <div class="panel panel--tall">
+            <div class="panel__topbar">
+              <h2 class="panel__title">Figma-migrate</h2>
+              <span class="panel__topbar-meta">v0.1</span>
+            </div>
+            <div class="panel__body">
+              <p style="margin:0; font-size:12px; color:var(--text-muted);">
+                Turn HTML mockups into design-system-backed Figma artboards.
+              </p>
+
+              <div class="drop">
+                <svg class="icon drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                  <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+                  <path d="M12 17v-6M9 14l3-3 3 3"/>
+                </svg>
+                <p class="drop__title">Drop a .html file here</p>
+                <p class="drop__subtitle">or</p>
+                <button class="btn btn--secondary">Choose file</button>
+              </div>
+
+              <textarea class="code" placeholder="<!doctype html>&#10;<html>&#10;  …&#10;</html>" style="min-height:96px;"></textarea>
+
+              <div class="field-row field-row--select field-row--dropdown-host" style="background: var(--primary-subtle); border-radius: var(--radius-sm); padding: 8px 10px; border-top: 0;">
+                <span><strong style="color:var(--text-primary); font-weight:500;">Target page</strong></span>
+                <span class="field-row__value">
+                  <span style="font:500 12px/1 var(--font-mono); color:var(--primary);">Claude output</span>
+                  <span class="field-row__caret" style="color:var(--primary);">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </span>
+                <div class="dropdown">
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Design system
+                  </div>
+                  <div class="dropdown__item dropdown__item--selected">
+                    <span class="dropdown__check">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                    Claude output
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Result
+                  </div>
+                  <div class="dropdown__item">
+                    <span class="dropdown__check"></span>
+                    Page 1
+                  </div>
+                  <div class="dropdown__divider"></div>
+                  <div class="dropdown__create-form">
+                    <input type="text" class="dropdown__input" value="figma-migrate output">
+                    <button class="btn btn--primary">Create</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel__footer panel__footer--right">
+              <button class="btn btn--primary btn--lg" disabled>Parse HTML →</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          After clicking <strong>+ Create new page…</strong> the row morphs into a focused input pre-filled with a
+          sensible default. <kbd>Enter</kbd> or the inline <strong>Create</strong> button commits — runs
+          <code>figma.createPage(name)</code>, sets it as the target, closes the dropdown. <kbd>Esc</kbd> cancels back
+          to the menu.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 10 — Build button in processing state
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">10</span><span class="strip__caption">Build · processing transition</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back" disabled style="opacity:0.4; cursor:not-allowed;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body" style="opacity:0.5;">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">System states</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">renderLoadingPage, renderEmptyPage</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Modal</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">input</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.cell-input, .modal__field-input</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg" disabled>
+              <span class="btn-spinner"></span>
+              <span>Preparing build…</span>
+            </button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          The moment after <strong>Build</strong> is clicked. Button switches to a disabled spinner+label state while
+          the plugin runs pre-build checks (DS re-sync, font preload, component imports — typically 1–2 s). Body
+          fades to ~50% to signal the panel is transitioning. Then Screen 04's stepper takes over and the body is
+          replaced.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Screen 11 — Create new UI · build approach
+           ============================================================ -->
+      <div class="strip__cell">
+        <div class="strip__label"><span class="strip__num">11</span><span class="strip__caption">Create new UI · build approach</span></div>
+        <div class="panel panel--tall">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h2 class="panel__title">Review DS mapping</h2>
+          </div>
+          <div class="panel__body">
+            <p style="margin:0; font-size:12px; color:var(--text-muted);">
+              Confirm which HTML elements use which DS components. Click any row to inspect or override the mapping.
+            </p>
+
+            <div class="coverage">
+              <div class="coverage__row">
+                <span class="coverage__name">Setting dialog</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.dialog</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">tab</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">.tab × 6</span>
+              </div>
+
+              <!-- Expanded row (Modal) with "Create new UI" selected -->
+              <div class="coverage__row coverage__row--expanded">
+                <div class="coverage__head">
+                  <span class="coverage__name">Modal</span>
+                  <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                  <button class="coverage__toggle coverage__toggle--open" aria-label="Collapse">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <span class="coverage__meta">4 modals → Confirm × 3, input field × 1</span>
+                  <span class="coverage__sub coverage__sub--warn">Unsaved guard needs a 3-button footer (DS Modal doesn't have this variant).</span>
+                </div>
+                <div class="coverage__detail">
+                  <p class="coverage__detail-section-label">Override</p>
+                  <div class="coverage__overrides">
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Map to existing DS</p>
+                        <p class="choice__detail">Default. Reshape this pattern to fit what the DS already supports. Build matches the DS; some HTML structure may change.</p>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice choice--selected">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Create new UI</p>
+                        <p class="choice__detail">Build the flagged instances as a new UI pattern, auto-proposed as a DS Suggestion. You'll pick whether to build from scratch or extend an existing DS component.</p>
+
+                        <!-- Sub-section nested inside the selected choice -->
+                        <div class="mapping-detail mapping-detail--nested">
+                          <div class="mapping-detail__header">
+                            <span class="mapping-detail__icon">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </span>
+                            <div>
+                              <p class="mapping-detail__title">Build approach for the new UI</p>
+                              <p class="mapping-detail__body">Should we build from scratch, or extend an existing DS component?</p>
+                            </div>
+                          </div>
+                          <div class="coverage__overrides">
+                            <div class="choice">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">From scratch</p>
+                                <p class="choice__detail">No DS components used. Build as a standalone artboard. Best when the HTML pattern doesn't resemble anything in the DS.</p>
+                              </div>
+                            </div>
+                            <div class="choice choice--selected">
+                              <span class="choice__radio"></span>
+                              <div>
+                                <p class="choice__title">Extend existing DS</p>
+                                <p class="choice__detail">Use a DS component as the base, hide non-applicable children, overlay the new pattern on top. E.g., a 3-button footer overlayed on Modal/Confirm's dual-CTA layout.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="choice__chev">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
+                    </div>
+                    <div class="choice">
+                      <span class="choice__radio"></span>
+                      <div>
+                        <p class="choice__title">Skip in build</p>
+                        <p class="choice__detail">Don't generate artboards for the flagged instances.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="coverage__detail-actions">
+                    <button class="btn btn--ghost">Cancel</button>
+                    <button class="btn btn--primary">Apply</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="coverage__row">
+                <span class="coverage__name">Toast</span>
+                <span class="coverage__action"><span class="pill pill--auto">Auto</span></span>
+                <span class="coverage__meta">success × 2, failed-action × 1</span>
+              </div>
+              <div class="coverage__row">
+                <span class="coverage__name">Button</span>
+                <span class="coverage__action"><span class="pill pill--review">Review</span></span>
+                <span class="coverage__meta">40 px → DS 36 · 48 px → DS 48</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          When the user picks <strong>Create new UI</strong>, the mapping-detail sub-section swaps from "how to
+          reshape" (Screen 07) to "build approach" (shown here). Two sub-modes: <strong>From scratch</strong> (no DS used)
+          or <strong>Extend existing DS</strong> (the example pattern — overlay a 3-button footer onto Modal/Confirm,
+          hiding the dual-CTA children). Either way, the resulting new UI is auto-proposed as a DS Suggestion.
+        </p>
+      </div>
+
+    </section>
+
+    <script>
+      // Production plugin entry: show Screen 01 (Paste HTML) as the entry state.
+      // State transitions to other screens (parse preview, coverage review,
+      // build progress, done) happen as the user interacts — those handlers
+      // get wired to code.js via parent.postMessage when v0.1 logic is implemented.
+      (function () {
+        var cells = document.querySelectorAll(".strip__cell");
+        if (cells.length === 0) return;
+        cells[0].classList.add("is-active");
+        var firstCell = cells[0];
+
+        // ---- Cross-screen state ----
+        // The build pipeline needs the parsed result + the source HTML
+        // filename. We capture the filename when the user picks a file,
+        // and the parsed payload when parse-result arrives. Build click
+        // forwards both back to code.js.
+        var lastFilename = "";
+        var lastParsedData = null;
+        var buildStartedAt = 0;
+        // Per-candidate screenshot bytes. Keyed by candidate name.
+        // Populated by the upload buttons on Screen 03; consumed by Build.
+        var candidateImages = {};
+        // While the hidden image input is open, this remembers which
+        // candidate the next selection belongs to.
+        var pendingCandidateName = null;
+        // Last set of variant lists from code.js (populated by parse-result).
+        // Used by the mapping rows on Screen 03 to show available DS
+        // variants in each dropdown.
+        var lastVariantLists = null;
+
+        // ---- Screen 01: Paste HTML — wire file picker, drag-drop, textarea, Parse button ----
+        var dropZone = firstCell.querySelector(".drop");
+        var chooseFileBtn = dropZone && dropZone.querySelector(".btn--secondary");
+        var htmlInput = firstCell.querySelector("textarea.code");
+        var parseBtn = firstCell.querySelector(".panel__footer .btn--primary");
+        var fileInput = document.getElementById("fileInput");
+
+        function setHtml(content) {
+          if (!htmlInput) return;
+          htmlInput.value = content;
+          updateParseButton();
+        }
+
+        function updateParseButton() {
+          if (!parseBtn || !htmlInput) return;
+          var hasContent = htmlInput.value.trim().length > 0;
+          parseBtn.disabled = !hasContent;
+        }
+
+        function loadFile(file) {
+          if (!file) return;
+          var nameOk = file.name && file.name.toLowerCase().endsWith(".html");
+          var typeOk = file.type === "text/html";
+          if (!nameOk && !typeOk) {
+            console.warn("Not an HTML file:", file.name, file.type);
+            return;
+          }
+          // Remember the filename — needed by the build pipeline for the
+          // "Setting - {Section} - {State}" naming heuristic.
+          lastFilename = file.name || "";
+          var reader = new FileReader();
+          reader.onload = function (e) { setHtml(e.target.result); };
+          reader.onerror = function () { console.error("Failed to read file"); };
+          reader.readAsText(file);
+        }
+
+        // Choose file button → trigger hidden file input
+        if (chooseFileBtn && fileInput) {
+          chooseFileBtn.addEventListener("click", function () {
+            fileInput.click();
+          });
+        }
+
+        // File input change → load file
+        if (fileInput) {
+          fileInput.addEventListener("change", function (e) {
+            var file = e.target.files && e.target.files[0];
+            if (file) loadFile(file);
+            // Reset so picking the same file again re-fires change
+            e.target.value = "";
+          });
+        }
+
+        // Drag and drop on the drop zone
+        if (dropZone) {
+          ["dragenter", "dragover"].forEach(function (evt) {
+            dropZone.addEventListener(evt, function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              dropZone.classList.add("drop--active");
+            });
+          });
+          ["dragleave", "dragend"].forEach(function (evt) {
+            dropZone.addEventListener(evt, function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              if (evt === "dragleave" && dropZone.contains(e.relatedTarget)) return;
+              dropZone.classList.remove("drop--active");
+            });
+          });
+          dropZone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove("drop--active");
+            var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) loadFile(file);
+          });
+        }
+
+        // Textarea input → enable/disable Parse button
+        if (htmlInput) {
+          htmlInput.addEventListener("input", updateParseButton);
+        }
+
+        // Parse HTML button → post message to plugin sandbox (code.js)
+        if (parseBtn) {
+          parseBtn.addEventListener("click", function () {
+            if (parseBtn.disabled) return;
+            parent.postMessage(
+              { pluginMessage: { type: "parse-html", html: htmlInput.value } },
+              "*"
+            );
+          });
+        }
+
+        // ---- Target page dropdown ----
+        var targetPageRow = firstCell.querySelector("#targetPageRow");
+        var targetPageLabel = firstCell.querySelector("#targetPageLabel");
+        var targetPageDropdown = firstCell.querySelector("#targetPageDropdown");
+        var dropdownDivider = firstCell.querySelector("#dropdownDivider");
+        var dropdownCreate = firstCell.querySelector("#dropdownCreate");
+        var isDropdownOpen = false;
+
+        var currentPages = [];
+
+        function openDropdown() {
+          if (!targetPageDropdown) return;
+          isDropdownOpen = true;
+          // Position via JS using `position: fixed` so the dropdown escapes
+          // the .panel__body overflow clip. Choose above/below based on
+          // available viewport space.
+          var rect = targetPageRow.getBoundingClientRect();
+          var estimatedHeight = 260; // approximate; refined after render
+          var spaceBelow = window.innerHeight - rect.bottom;
+          var spaceAbove = rect.top;
+          targetPageDropdown.style.position = "fixed";
+          targetPageDropdown.style.right =
+            (window.innerWidth - rect.right) + "px";
+          targetPageDropdown.style.left = "auto";
+          if (spaceBelow >= estimatedHeight + 16 || spaceBelow >= spaceAbove) {
+            // Open below
+            targetPageDropdown.style.top = (rect.bottom + 4) + "px";
+            targetPageDropdown.style.bottom = "auto";
+          } else {
+            // Open above
+            targetPageDropdown.style.top = "auto";
+            targetPageDropdown.style.bottom =
+              (window.innerHeight - rect.top + 4) + "px";
+          }
+          targetPageDropdown.style.display = "block";
+          targetPageRow.classList.add("is-open");
+          parent.postMessage({ pluginMessage: { type: "list-pages" } }, "*");
+        }
+
+        function closeDropdown() {
+          if (!targetPageDropdown) return;
+          isDropdownOpen = false;
+          targetPageDropdown.style.display = "none";
+          // Reset inline positioning so next open re-computes cleanly
+          targetPageDropdown.style.position = "";
+          targetPageDropdown.style.top = "";
+          targetPageDropdown.style.right = "";
+          targetPageDropdown.style.bottom = "";
+          targetPageDropdown.style.left = "";
+          targetPageRow.classList.remove("is-open");
+          // Reset create form so it doesn't show stale state on next open
+          hideCreateForm();
+        }
+
+        function renderPagesList(pages, currentTarget) {
+          if (!targetPageDropdown || !dropdownDivider) return;
+          currentPages = pages || [];
+          // Remove existing dynamically-rendered page items only.
+          // (Preserves the divider, the "+ Create new page…" row, and the inline create form.)
+          var children = Array.prototype.slice.call(targetPageDropdown.children);
+          children.forEach(function (child) {
+            if (!child.classList || !child.classList.contains("dropdown__item")) return;
+            if (child.classList.contains("dropdown__item--create")) return;
+            child.remove();
+          });
+          // Insert each page as a dropdown item before the divider
+          currentPages.forEach(function (page) {
+            var item = document.createElement("div");
+            item.className = "dropdown__item";
+            if (page.name === currentTarget) {
+              item.className += " dropdown__item--selected";
+            }
+            var check = document.createElement("span");
+            check.className = "dropdown__check";
+            if (page.name === currentTarget) {
+              check.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            }
+            item.appendChild(check);
+            item.appendChild(document.createTextNode(" " + page.name));
+            item.addEventListener("click", function (ev) {
+              ev.stopPropagation();
+              selectPage(page.name);
+            });
+            targetPageDropdown.insertBefore(item, dropdownDivider);
+          });
+          // Update the visible label
+          if (targetPageLabel && currentTarget) {
+            targetPageLabel.textContent = currentTarget;
+          }
+        }
+
+        function selectPage(name) {
+          parent.postMessage(
+            { pluginMessage: { type: "set-target-page", pageName: name } },
+            "*"
+          );
+          if (targetPageLabel) targetPageLabel.textContent = name;
+          // Re-render dropdown items so the check mark moves to the
+          // newly-selected page (visible if user re-opens before close finishes,
+          // or if we extend to keep dropdown open after select).
+          renderPagesList(currentPages, name);
+          closeDropdown();
+        }
+
+        // Click anywhere on the target page row toggles the dropdown
+        if (targetPageRow) {
+          targetPageRow.addEventListener("click", function (e) {
+            // If the click is inside the dropdown itself, don't toggle
+            if (targetPageDropdown && targetPageDropdown.contains(e.target)) return;
+            if (isDropdownOpen) closeDropdown();
+            else openDropdown();
+          });
+        }
+
+        // Click outside closes dropdown
+        document.addEventListener("click", function (e) {
+          if (!isDropdownOpen) return;
+          if (targetPageRow && targetPageRow.contains(e.target)) return;
+          closeDropdown();
+        });
+
+        // "Create new page…" item → toggle inline input form (Figma plugin
+        // iframes don't support window.prompt(); use the in-dropdown form
+        // from the mockup's Screen 09 instead).
+        var dropdownCreateForm = firstCell.querySelector("#dropdownCreateForm");
+        var dropdownCreateInput = firstCell.querySelector("#dropdownCreateInput");
+        var dropdownCreateSubmit = firstCell.querySelector("#dropdownCreateSubmit");
+
+        function showCreateForm() {
+          if (!dropdownCreate || !dropdownCreateForm || !dropdownCreateInput) return;
+          dropdownCreate.style.display = "none";
+          dropdownCreateForm.style.display = "flex";
+          dropdownCreateInput.value = "";
+          setTimeout(function () { dropdownCreateInput.focus(); }, 0);
+        }
+
+        function hideCreateForm() {
+          if (!dropdownCreate || !dropdownCreateForm) return;
+          dropdownCreateForm.style.display = "none";
+          dropdownCreate.style.display = "";
+          if (dropdownCreateInput) dropdownCreateInput.value = "";
+        }
+
+        function submitCreate() {
+          if (!dropdownCreateInput) return;
+          var name = dropdownCreateInput.value.trim();
+          if (!name) return;
+          parent.postMessage(
+            { pluginMessage: { type: "create-page", name: name } },
+            "*"
+          );
+          hideCreateForm();
+          closeDropdown();
+        }
+
+        if (dropdownCreate) {
+          dropdownCreate.addEventListener("click", function (e) {
+            e.stopPropagation();
+            showCreateForm();
+          });
+        }
+        if (dropdownCreateSubmit) {
+          dropdownCreateSubmit.addEventListener("click", function (e) {
+            e.stopPropagation();
+            submitCreate();
+          });
+        }
+        if (dropdownCreateInput) {
+          // Prevent clicks inside the input from bubbling to the row toggle.
+          dropdownCreateInput.addEventListener("click", function (e) {
+            e.stopPropagation();
+          });
+          dropdownCreateInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submitCreate();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              hideCreateForm();
+            }
+          });
+        }
+
+        // ---- Screen transitions with back-stack ----
+        var backStack = [];
+
+        function getCurrentScreenIndex() {
+          var allCells = document.querySelectorAll(".strip__cell");
+          for (var i = 0; i < allCells.length; i++) {
+            if (allCells[i].classList.contains("is-active")) return i;
+          }
+          return 0;
+        }
+
+        function showScreen(index) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          for (var i = 0; i < allCells.length; i++) {
+            allCells[i].classList.toggle("is-active", i === index);
+          }
+          // Re-measure after the screen change — different screens have
+          // different topbar/footer heights, so panel body height must update.
+          sizePanelBody();
+        }
+
+        // JS-driven body sizing — flex/grid layouts kept silently failing,
+        // so we measure window + chrome heights and set body height in px.
+        function sizePanelBody() {
+          var cells = document.querySelectorAll(".strip__cell.is-active");
+          for (var c = 0; c < cells.length; c++) {
+            var panel = cells[c].querySelector(".panel");
+            if (!panel) continue;
+            var topbar = panel.querySelector(".panel__topbar");
+            var footer = panel.querySelector(".panel__footer");
+            var body = panel.querySelector(".panel__body");
+            if (!body) continue;
+            var topH = topbar ? topbar.offsetHeight : 0;
+            var footH = footer ? footer.offsetHeight : 0;
+            var availH = window.innerHeight - topH - footH;
+            body.style.height = availH + "px";
+            body.style.maxHeight = availH + "px";
+          }
+        }
+        window.addEventListener("resize", sizePanelBody);
+        // Initial measure happens after the IIFE — see end.
+
+        function navigateTo(index) {
+          backStack.push(getCurrentScreenIndex());
+          showScreen(index);
+        }
+
+        function goBack() {
+          if (backStack.length > 0) {
+            showScreen(backStack.pop());
+          } else {
+            showScreen(0);
+          }
+        }
+
+        // Hard reset back to Screen 01 (Paste HTML). Used by "Run again
+        // with new HTML" on Done — popping the back stack would land on
+        // Screen 04 (Build progress) with stale data, which is wrong.
+        // Clears the captured parse payload, the file name, the textarea,
+        // and the back stack, so the next run starts clean.
+        function resetToStart() {
+          lastParsedData = null;
+          lastFilename = "";
+          buildStartedAt = 0;
+          backStack.length = 0;
+          if (htmlInput) {
+            htmlInput.value = "";
+            updateParseButton();
+          }
+          showScreen(0);
+        }
+
+        // Wire all back buttons across all screens
+        var backButtons = document.querySelectorAll(".panel__back");
+        for (var b = 0; b < backButtons.length; b++) {
+          backButtons[b].addEventListener("click", goBack);
+        }
+
+        // ---- Card head click → toggle open/closed ----
+        document.querySelectorAll(".card__head").forEach(function (head) {
+          if (head.classList.contains("card__head--static")) return;
+          head.addEventListener("click", function () {
+            var card = head.closest(".card");
+            if (card) card.classList.toggle("card--open");
+          });
+        });
+
+        // ---- Card list items: click to toggle include/exclude ----
+        // Event delegation on document — handles dynamically-created items
+        // from populateParseResults() as well as initial HTML items.
+        document.addEventListener("click", function (e) {
+          var item = e.target.closest(".card__list-item--clickable");
+          if (item) {
+            item.classList.toggle("card__list-item--excluded");
+          }
+        });
+
+        // ---- Choice radio selection (works on expanded rows, modal gates) ----
+        // Click a .choice inside a .coverage__overrides → mark it selected,
+        // remove --selected from its siblings in the same group.
+        document.querySelectorAll(".coverage__overrides").forEach(function (group) {
+          group.addEventListener("click", function (e) {
+            var choice = e.target.closest(".choice");
+            if (!choice) return;
+            // Only handle direct children of THIS group — nested groups
+            // (sub-options) handle their own clicks separately.
+            if (choice.parentNode !== group) return;
+            Array.prototype.forEach.call(group.children, function (sib) {
+              if (sib.classList && sib.classList.contains("choice")) {
+                sib.classList.remove("choice--selected");
+              }
+            });
+            choice.classList.add("choice--selected");
+          });
+        });
+
+        // ---- Coverage rows (Screen 03): click → navigate to expanded view ----
+        // Only Review rows are clickable; Auto rows have no override choices.
+        (function () {
+          var allCells = document.querySelectorAll(".strip__cell");
+          if (!allCells[2]) return;
+          var rows = allCells[2].querySelectorAll(".coverage__row:not(.coverage__row--expanded)");
+          for (var r = 0; r < rows.length; r++) {
+            (function (row) {
+              row.addEventListener("click", function () {
+                // Skip Auto rows — they have no expandable options
+                if (row.querySelector(".pill--auto")) return;
+                navigateTo(6); // Screen 07 = "Row expanded · edit mapping"
+              });
+            })(rows[r]);
+          }
+        })();
+
+        // ---- Apply / Cancel in row detail (Screens 07, 11) → goBack ----
+        document.querySelectorAll(".coverage__detail-actions .btn").forEach(function (btn) {
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            goBack();
+          });
+        });
+
+        // ---- Toggle chevron (collapse expanded row) → goBack ----
+        document.querySelectorAll(".coverage__toggle").forEach(function (toggle) {
+          toggle.addEventListener("click", function (e) {
+            e.stopPropagation();
+            goBack();
+          });
+        });
+
+        // Wire screen-specific footer CTAs
+        function wireFooterButtons() {
+          var allCells = document.querySelectorAll(".strip__cell");
+
+          // Screen 02 (Parse preview): Cancel → back; Review DS mapping → Screen 03
+          if (allCells[1]) {
+            var footer = allCells[1].querySelector(".panel__footer");
+            if (footer) {
+              var secondary = footer.querySelector(".btn--secondary, .btn--ghost");
+              if (secondary) secondary.addEventListener("click", goBack);
+              var primary = footer.querySelector(".btn--primary");
+              if (primary) {
+                primary.addEventListener("click", function () { navigateTo(2); });
+              }
+            }
+          }
+
+          // Screen 03 (DS coverage review): Build → reset progress UI,
+          // navigate to Screen 04, post build message with parsed data.
+          if (allCells[2]) {
+            var footer = allCells[2].querySelector(".panel__footer");
+            if (footer) {
+              var primary = footer.querySelector(".btn--primary");
+              if (primary) {
+                primary.addEventListener("click", function () {
+                  resetBuildProgressUI();
+                  navigateTo(3);
+                  buildStartedAt = Date.now();
+                  // Scrape the DS Candidates list from Screen 03 so the
+                  // build can create one frame per candidate. v0.1 list
+                  // is still mockup data; v0.2 will derive from parser.
+                  var candidates = scrapeCandidates(allCells[2]);
+                  // Scrape the user's variant choices from the mapping
+                  // dropdowns. These override the build's name-based
+                  // heuristics so users can fix mismatches per-row.
+                  var variantChoices = scrapeVariantChoices(allCells[2]);
+                  parent.postMessage(
+                    {
+                      pluginMessage: {
+                        type: "build",
+                        parsed: lastParsedData || {},
+                        filename: lastFilename || "",
+                        candidates: candidates,
+                        variantChoices: variantChoices,
+                      },
+                    },
+                    "*"
+                  );
+                });
+              }
+            }
+          }
+
+          // Screen 04 (Build progress): Cancel → back
+          if (allCells[3]) {
+            var footer = allCells[3].querySelector(".panel__footer");
+            if (footer) {
+              var secondary = footer.querySelector(".btn--secondary, .btn--ghost");
+              if (secondary) secondary.addEventListener("click", goBack);
+            }
+          }
+
+          // Screen 05 (Done):
+          //   Show on canvas (primary) → view-on-canvas
+          //   Run again with new HTML (ghost) → resetToStart (NOT goBack;
+          //     goBack would land on Screen 04 with stale build progress)
+          if (allCells[4]) {
+            var bodyBtns = allCells[4].querySelectorAll(".panel__body .btn");
+            for (var i = 0; i < bodyBtns.length; i++) {
+              var btn = bodyBtns[i];
+              if (btn.classList.contains("btn--primary")) {
+                btn.addEventListener("click", function () {
+                  parent.postMessage(
+                    { pluginMessage: { type: "view-on-canvas" } },
+                    "*"
+                  );
+                });
+              } else if (btn.classList.contains("btn--ghost")) {
+                btn.addEventListener("click", resetToStart);
+              }
+            }
+          }
+        }
+        wireFooterButtons();
+
+        // ---- Populate Screen 02 (Parse preview) with parsed data ----
+        function renderDsSync(sync) {
+          var banner = document.getElementById("dsSyncBanner");
+          var bannerIcon = document.getElementById("dsSyncBannerIcon");
+          var bannerBody = document.getElementById("dsSyncBannerBody");
+          if (!banner || !bannerBody) return;
+          banner.classList.remove(
+            "banner--success",
+            "banner--warning",
+            "banner--info",
+            "banner--error"
+          );
+
+          // Build a "Source: PAGE Design system" chip + label fragment.
+          // Used in all success states so the user always knows where the
+          // DS comes from (page in this file vs. linked library).
+          function buildSourceFragment(sourceType, sourceName) {
+            var frag = document.createDocumentFragment();
+            if (!sourceType) return frag;
+            var tag = document.createElement("span");
+            tag.className = "banner__source-tag";
+            tag.textContent = sourceType === "library" ? "Library" : "Page";
+            frag.appendChild(tag);
+            if (sourceName) {
+              frag.appendChild(document.createTextNode(sourceName));
+            }
+            return frag;
+          }
+
+          // Helper to write banner body as: "{prefix} " + chip + " " + suffix.
+          function writeBanner(prefix, sync, suffix) {
+            bannerBody.textContent = "";
+            if (prefix) bannerBody.appendChild(document.createTextNode(prefix));
+            bannerBody.appendChild(buildSourceFragment(sync.source, sync.sourceName));
+            if (suffix) bannerBody.appendChild(document.createTextNode(suffix));
+          }
+
+          if (!sync || !sync.ok) {
+            banner.classList.add("banner--error");
+            // Error case: still surface source if we know it (e.g., library
+            // detected but unsupported), so the user knows what we found.
+            if (sync && sync.source) {
+              writeBanner("", sync, " — " + (sync.error || "DS sync failed."));
+            } else {
+              bannerBody.textContent =
+                (sync && sync.error) || "DS sync failed.";
+            }
+            if (bannerIcon) {
+              bannerIcon.innerHTML =
+                '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+            }
+            return;
+          }
+          if (sync.changed) {
+            banner.classList.add("banner--warning");
+            writeBanner(
+              "DS updated — " + sync.componentCount + " components from ",
+              sync,
+              "."
+            );
+            if (bannerIcon) {
+              bannerIcon.innerHTML =
+                '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+            }
+          } else {
+            banner.classList.add("banner--success");
+            var dateStr = "earlier";
+            if (sync.lastSyncedAt) {
+              try {
+                dateStr = new Date(sync.lastSyncedAt).toLocaleDateString();
+              } catch (e) {}
+            }
+            writeBanner(
+              "DS in sync — ",
+              sync,
+              " · " + sync.componentCount + " components · last checked " + dateStr
+            );
+            if (bannerIcon) {
+              bannerIcon.innerHTML =
+                '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            }
+          }
+        }
+
+        // ---- Build progress UI (Screen 04) + Done UI (Screen 05) ----
+
+        // Pull the candidate names from the DS Candidates card on Screen 03,
+        // pairing each with any uploaded screenshot bytes (or null).
+        // Each <li> contains a .candidates-card__list-name span we read,
+        // then we look up the bytes in `candidateImages` by that name.
+        function scrapeCandidates(screen03) {
+          if (!screen03) return [];
+          var items = screen03.querySelectorAll(".candidates-card__list li");
+          var out = [];
+          for (var i = 0; i < items.length; i++) {
+            var nameEl = items[i].querySelector(".candidates-card__list-name");
+            var name = nameEl
+              ? (nameEl.textContent || "").trim()
+              : (items[i].textContent || "").trim();
+            if (!name) continue;
+            out.push({
+              name: name,
+              imageBytes: candidateImages[name] || null,
+            });
+          }
+          return out;
+        }
+
+        // ---- Candidate element picker wiring ----
+        // Each candidate row has a "Pick element" button. Click opens
+        // the full-window picker overlay, which renders the user's
+        // uploaded HTML in an iframe. User clicks the candidate's
+        // matching element, html2canvas captures it as image bytes,
+        // bytes are stashed in candidateImages and used at Build time.
+        var pickerOverlay = document.getElementById("pickerOverlay");
+        var pickerIframe = document.getElementById("pickerIframe");
+        var pickerCandidateNameEl = document.getElementById("pickerCandidateName");
+        var pickerCancelBtn = document.getElementById("pickerCancelBtn");
+        var pickerCaptureBtn = document.getElementById("pickerCaptureBtn");
+        var pickerHint = document.getElementById("pickerHint");
+        // The element currently selected (highlighted) in the iframe.
+        var pickerSelectedElement = null;
+
+        function wireCandidatePickers() {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen03 = allCells[2];
+          if (!screen03) return;
+          var items = screen03.querySelectorAll(".candidates-card__list li");
+          for (var i = 0; i < items.length; i++) {
+            (function (li) {
+              var nameEl = li.querySelector(".candidates-card__list-name");
+              var btn = li.querySelector(".candidates-card__upload-btn");
+              if (!btn || !nameEl) return;
+              btn.addEventListener("click", function () {
+                var candidateName = (nameEl.textContent || "").trim();
+                openPicker(candidateName);
+              });
+            })(items[i]);
+          }
+        }
+        wireCandidatePickers();
+
+        // Try to dynamically load html2canvas if the script tag failed
+        // (some plugin sandboxes block CDN scripts even with networkAccess
+        // declared). Falls through to the alert if even fetch is blocked.
+        function ensureHtml2Canvas() {
+          if (typeof window.html2canvas === "function") return Promise.resolve(true);
+          var url = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+          return fetch(url)
+            .then(function (r) { return r.text(); })
+            .then(function (code) {
+              // eslint-disable-next-line no-eval
+              (1, eval)(code); // indirect eval → runs in global scope
+              return typeof window.html2canvas === "function";
+            })
+            .catch(function () { return false; });
+        }
+
+        // Open the picker overlay for a given candidate name. Loads
+        // the user's HTML into the iframe via srcdoc, sets up hover
+        // + click handlers inside, and waits for capture or cancel.
+        function openPicker(candidateName) {
+          if (!pickerOverlay || !pickerIframe) return;
+          var html = (htmlInput && htmlInput.value) || "";
+          if (!html.trim()) {
+            alert(
+              "No HTML loaded yet — go back to Screen 01 and pick a file (or paste HTML), then click Parse."
+            );
+            return;
+          }
+          ensureHtml2Canvas().then(function (ready) {
+            if (!ready) {
+              alert(
+                "html2canvas failed to load.\n\n" +
+                  "This usually means the plugin needs a relaunch to pick up the manifest's networkAccess permission.\n\n" +
+                  "Try: close the plugin, then re-run it from Plugins menu. " +
+                  "If it still fails, the plugin sandbox is blocking the CDN — let me know and I'll inline the library."
+              );
+              return;
+            }
+            openPickerInternal(candidateName, html);
+          });
+        }
+
+        function openPickerInternal(candidateName, html) {
+          pendingCandidateName = candidateName;
+          pickerSelectedElement = null;
+          if (pickerCandidateNameEl) pickerCandidateNameEl.textContent = candidateName;
+          if (pickerHint) pickerHint.textContent = "Click any element in the page below.";
+          if (pickerCaptureBtn) pickerCaptureBtn.disabled = true;
+          // Resize the plugin UI to take over the canvas, then show overlay.
+          parent.postMessage(
+            { pluginMessage: { type: "resize-ui", width: 1400, height: 900 } },
+            "*"
+          );
+          pickerOverlay.hidden = false;
+          // Load HTML into the iframe via srcdoc (same-origin, scripted).
+          // The onload below wires the in-iframe hover + click handlers.
+          pickerIframe.srcdoc = html;
+        }
+
+        function closePicker() {
+          if (pickerOverlay) pickerOverlay.hidden = true;
+          if (pickerIframe) pickerIframe.srcdoc = ""; // free memory
+          pickerSelectedElement = null;
+          pendingCandidateName = null;
+          // Restore plugin UI size.
+          parent.postMessage(
+            { pluginMessage: { type: "resize-ui", width: 380, height: 800 } },
+            "*"
+          );
+        }
+
+        if (pickerCancelBtn) {
+          pickerCancelBtn.addEventListener("click", closePicker);
+        }
+
+        // Capture button → run html2canvas on the selected iframe element,
+        // turn canvas to bytes, store under the pending candidate name.
+        if (pickerCaptureBtn) {
+          pickerCaptureBtn.addEventListener("click", function () {
+            if (!pickerSelectedElement || !pendingCandidateName) return;
+            pickerCaptureBtn.disabled = true;
+            pickerCaptureBtn.textContent = "Capturing…";
+            var name = pendingCandidateName;
+            window.html2canvas(pickerSelectedElement, {
+              backgroundColor: null,
+              scale: 2, // 2× DPI for sharp images
+              logging: false,
+              useCORS: true,
+            })
+              .then(function (canvas) {
+                return new Promise(function (resolve, reject) {
+                  canvas.toBlob(function (blob) {
+                    if (!blob) return reject(new Error("toBlob returned null"));
+                    blob.arrayBuffer().then(function (buffer) {
+                      resolve(new Uint8Array(buffer));
+                    }, reject);
+                  }, "image/png");
+                });
+              })
+              .then(function (bytes) {
+                candidateImages[name] = bytes;
+                // Flip the row's status indicator so the user can see
+                // which candidates have captures.
+                markCandidateCaptured(name);
+                pickerCaptureBtn.textContent = "Capture";
+                pickerCaptureBtn.disabled = false;
+                closePicker();
+              })
+              .catch(function (err) {
+                console.error("Capture failed:", err);
+                if (pickerHint) pickerHint.textContent = "Capture failed: " + (err.message || err);
+                pickerCaptureBtn.textContent = "Capture";
+                pickerCaptureBtn.disabled = false;
+              });
+          });
+        }
+
+        // Update the candidate row's button + ✓ indicator after capture.
+        function markCandidateCaptured(name) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen03 = allCells[2];
+          if (!screen03) return;
+          var items = screen03.querySelectorAll(".candidates-card__list li");
+          for (var i = 0; i < items.length; i++) {
+            var nameEl = items[i].querySelector(".candidates-card__list-name");
+            if (!nameEl) continue;
+            if ((nameEl.textContent || "").trim() === name) {
+              var btn = items[i].querySelector(".candidates-card__upload-btn");
+              var status = items[i].querySelector(".candidates-card__upload-status");
+              if (btn) btn.textContent = "Re-pick";
+              if (status) status.hidden = false;
+              break;
+            }
+          }
+        }
+
+        // Wire the iframe's load event ONCE. On each new srcdoc load,
+        // inject hover + click handlers + a highlight stylesheet into
+        // the iframe document.
+        if (pickerIframe) {
+          pickerIframe.addEventListener("load", function () {
+            try {
+              var doc = pickerIframe.contentDocument;
+              if (!doc) return;
+              // Inject highlight CSS — outline on hover, stronger
+              // outline + bg tint when selected.
+              var style = doc.createElement("style");
+              style.textContent =
+                ".__picker-hover { outline: 2px solid #4ec3ff !important; outline-offset: 2px !important; cursor: crosshair !important; }" +
+                ".__picker-selected { outline: 3px solid #2563eb !important; outline-offset: 3px !important; box-shadow: 0 0 0 9999px rgba(37, 99, 235, 0.08) !important; }";
+              doc.head.appendChild(style);
+
+              var hoveredEl = null;
+              doc.addEventListener("mouseover", function (e) {
+                if (hoveredEl) hoveredEl.classList.remove("__picker-hover");
+                hoveredEl = e.target;
+                if (hoveredEl && hoveredEl !== pickerSelectedElement) {
+                  hoveredEl.classList.add("__picker-hover");
+                }
+              }, true);
+              doc.addEventListener("mouseout", function (e) {
+                if (hoveredEl) {
+                  hoveredEl.classList.remove("__picker-hover");
+                  hoveredEl = null;
+                }
+              }, true);
+              doc.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (pickerSelectedElement) {
+                  pickerSelectedElement.classList.remove("__picker-selected");
+                }
+                pickerSelectedElement = e.target;
+                if (pickerSelectedElement) {
+                  pickerSelectedElement.classList.remove("__picker-hover");
+                  pickerSelectedElement.classList.add("__picker-selected");
+                  if (pickerHint) {
+                    var tag = (pickerSelectedElement.tagName || "").toLowerCase();
+                    var cls = pickerSelectedElement.className && typeof pickerSelectedElement.className === "string"
+                      ? "." + pickerSelectedElement.className.split(/\s+/).filter(function (c) { return c && c.indexOf("__picker") !== 0; }).join(".")
+                      : "";
+                    pickerHint.textContent = "Selected: <" + tag + cls + "> — click another element to change, or Capture.";
+                  }
+                  if (pickerCaptureBtn) pickerCaptureBtn.disabled = false;
+                }
+              }, true);
+            } catch (e) {
+              console.error("Picker iframe wire-up failed:", e);
+            }
+          });
+        }
+
+
+        // Reset Screen 04 to its starting state — clear the log, set the
+        // first two stepper items to "done" instantly (those are pre-flight
+        // and Defaults — both effectively complete by the time the user
+        // clicks Build), and mark "Building artboards" as active.
+        function resetBuildProgressUI() {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen04 = allCells[3];
+          if (!screen04) return;
+          // Reset title (showBuildError may have set this to "Build failed")
+          var title = screen04.querySelector(".panel__title");
+          if (title) title.textContent = "Building artboards…";
+          var topMeta = screen04.querySelector(".panel__topbar-meta");
+          if (topMeta) topMeta.textContent = "0 / —";
+          var steps = screen04.querySelectorAll(".stepper__item");
+          // 0: Pre-flight, 1: Defaults, 2: Building artboards, 3: DS Candidate
+          for (var i = 0; i < steps.length; i++) {
+            steps[i].classList.remove(
+              "stepper__item--done",
+              "stepper__item--active",
+              "stepper__item--pending"
+            );
+            if (i <= 1) steps[i].classList.add("stepper__item--done");
+            else if (i === 2) steps[i].classList.add("stepper__item--active");
+            else steps[i].classList.add("stepper__item--pending");
+          }
+          // Replace the "Building artboards" progress text and clear DS candidate count
+          if (steps[2]) {
+            var p = steps[2].querySelector(".stepper__progress");
+            if (p) p.textContent = "starting…";
+            var d = steps[2].querySelector(".stepper__dot");
+            if (d) d.innerHTML = "";
+          }
+          if (steps[3]) {
+            var p3 = steps[3].querySelector(".stepper__progress");
+            if (p3) p3.textContent = "—";
+          }
+          var log = screen04.querySelector(".build-log");
+          if (log) log.innerHTML = "";
+        }
+
+        // Append a single log line for an artboard build event.
+        function appendBuildLog(name, kind) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen04 = allCells[3];
+          if (!screen04) return;
+          var log = screen04.querySelector(".build-log");
+          if (!log) return;
+          var line = document.createElement("div");
+          line.className = "build-log__line build-log__line--" + (kind || "ok");
+          var time = document.createElement("span");
+          time.className = "build-log__time";
+          var d = new Date();
+          time.textContent =
+            String(d.getHours()).padStart(2, "0") +
+            ":" + String(d.getMinutes()).padStart(2, "0") +
+            ":" + String(d.getSeconds()).padStart(2, "0");
+          line.appendChild(time);
+          var glyph = document.createElement("span");
+          glyph.textContent = kind === "running" ? "⏳" : (kind === "warn" ? "⚠" : "✓");
+          line.appendChild(glyph);
+          line.appendChild(document.createTextNode(" " + name));
+          log.appendChild(line);
+          // Keep most recent line visible
+          log.scrollTop = log.scrollHeight;
+        }
+
+        // Update the topbar "X / Y" + the "Building artboards" stepper count.
+        function updateBuildProgress(index, total) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen04 = allCells[3];
+          if (!screen04) return;
+          var meta = screen04.querySelector(".panel__topbar-meta");
+          if (meta) meta.textContent = (index + 1) + " / " + total;
+          var steps = screen04.querySelectorAll(".stepper__item");
+          if (steps[2]) {
+            var p = steps[2].querySelector(".stepper__progress");
+            if (p) p.textContent = (index + 1) + " / " + total;
+          }
+        }
+
+        // Mark the build complete: all stepper items done, populate Screen 05.
+        function finalizeBuildProgress(counts) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen04 = allCells[3];
+          if (screen04) {
+            var steps = screen04.querySelectorAll(".stepper__item");
+            for (var i = 0; i < steps.length; i++) {
+              steps[i].classList.remove(
+                "stepper__item--active",
+                "stepper__item--pending"
+              );
+              steps[i].classList.add("stepper__item--done");
+              var dot = steps[i].querySelector(".stepper__dot");
+              if (dot) {
+                dot.innerHTML =
+                  '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              }
+            }
+            if (steps[3] && counts) {
+              var p3 = steps[3].querySelector(".stepper__progress");
+              if (p3) p3.textContent = (counts.candidates || 0) + " items";
+            }
+          }
+        }
+
+        // Populate Screen 05 (Done) with real counts and target page name,
+        // then transition.
+        function showDoneScreen(counts, targetPageName) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen05 = allCells[4];
+          if (!screen05) return;
+
+          var total =
+            (counts.states || 0) +
+            (counts.modals || 0) +
+            (counts.toasts || 0);
+
+          var doneTitle = screen05.querySelector(".done__title");
+          if (doneTitle) doneTitle.textContent = "Built " + total + " artboards";
+
+          var doneSubtitle = screen05.querySelector(".done__subtitle");
+          if (doneSubtitle) {
+            doneSubtitle.innerHTML =
+              "on <strong style=\"color:var(--text-secondary);\">" +
+              (targetPageName || "Claude output") +
+              "</strong>";
+          }
+
+          var meta = screen05.querySelector(".panel__topbar-meta");
+          if (meta && buildStartedAt) {
+            var secs = Math.round((Date.now() - buildStartedAt) / 1000);
+            meta.textContent = secs + " s";
+          }
+
+          var listItems = screen05.querySelectorAll(".done__list li");
+          var countMap = [
+            counts.states || 0,
+            counts.modals || 0,
+            counts.toasts || 0,
+            counts.candidates || 0,
+            0, // DS Suggestions — not yet implemented
+          ];
+          for (var i = 0; i < listItems.length && i < countMap.length; i++) {
+            var n = listItems[i].querySelector(".done__list-num");
+            if (n) n.textContent = String(countMap[i]);
+          }
+
+          // Show a warnings hint if any
+          if (counts.warnings && counts.warnings > 0) {
+            console.warn("Build completed with " + counts.warnings + " warnings");
+          }
+
+          navigateTo(4);
+        }
+
+        // Show a build error inline on Screen 04 (don't transition to Done).
+        function showBuildError(message) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen04 = allCells[3];
+          if (!screen04) return;
+          var topMeta = screen04.querySelector(".panel__topbar-meta");
+          if (topMeta) topMeta.textContent = "Failed";
+          var title = screen04.querySelector(".panel__title");
+          if (title) title.textContent = "Build failed";
+          var steps = screen04.querySelectorAll(".stepper__item");
+          if (steps[2]) {
+            steps[2].classList.remove("stepper__item--active");
+            steps[2].classList.add("stepper__item--pending");
+            var p = steps[2].querySelector(".stepper__progress");
+            if (p) p.textContent = "error";
+          }
+          appendBuildLog(message || "Unknown error", "warn");
+        }
+
+        // Render the Screen 03 mapping rows from the variant suggestions
+        // returned by code.js. Each row pairs a parsed source (state name,
+        // modal function name, toast message) with a <select> dropdown
+        // pre-selected to the auto-suggested DS variant. The select's
+        // data-source attribute lets `scrapeVariantChoices` collect the
+        // user's confirmed choices at Build time.
+        function renderMappingScreen(suggestions, lists) {
+          if (!suggestions || !lists) return;
+          var allCells = document.querySelectorAll(".strip__cell");
+          var screen03 = allCells[2];
+          if (!screen03) return;
+
+          // Generic helper: render a section's rows into its list element.
+          function renderSection(listId, countId, rows, options, makeRow) {
+            var listEl = screen03.querySelector("#" + listId);
+            var countEl = screen03.querySelector("#" + countId);
+            if (!listEl || !countEl) return;
+            countEl.textContent = String(rows.length);
+            listEl.innerHTML = "";
+            if (rows.length === 0) {
+              var empty = document.createElement("p");
+              empty.className = "mapping-section__empty";
+              empty.textContent = "None detected in HTML.";
+              listEl.appendChild(empty);
+              return;
+            }
+            for (var i = 0; i < rows.length; i++) {
+              listEl.appendChild(makeRow(rows[i], options));
+            }
+          }
+
+          // Build a single mapping row: <source label> → <select>.
+          function buildRow(sourceLabel, sourceKey, kind, suggested) {
+            var row = document.createElement("div");
+            row.className = "mapping-row";
+            var src = document.createElement("span");
+            src.className = "mapping-row__source";
+            src.textContent = sourceLabel;
+            src.title = sourceLabel; // full text on hover
+            row.appendChild(src);
+            var arrow = document.createElement("span");
+            arrow.className = "mapping-row__source mapping-row__source--small";
+            arrow.style.flex = "0 0 auto";
+            arrow.textContent = "→";
+            row.appendChild(arrow);
+            var select = document.createElement("select");
+            select.className = "mapping-row__select";
+            select.setAttribute("data-kind", kind);
+            select.setAttribute("data-key", sourceKey);
+            var variants = lists[kind] || [];
+            for (var v = 0; v < variants.length; v++) {
+              var opt = document.createElement("option");
+              opt.value = variants[v];
+              opt.textContent = variants[v];
+              if (variants[v] === suggested) opt.selected = true;
+              select.appendChild(opt);
+            }
+            row.appendChild(select);
+            return row;
+          }
+
+          renderSection(
+            "mappingSystemStatesList",
+            "mappingSystemStatesCount",
+            suggestions.systemStates || [],
+            null,
+            function (r) {
+              return buildRow(r.state, r.state, "systemStates", r.suggested);
+            }
+          );
+          renderSection(
+            "mappingModalsList",
+            "mappingModalsCount",
+            suggestions.modals || [],
+            null,
+            function (r) {
+              return buildRow(r.name + "()", r.name, "modal", r.suggested);
+            }
+          );
+          renderSection(
+            "mappingToastsList",
+            "mappingToastsCount",
+            suggestions.toasts || [],
+            null,
+            function (r) {
+              var label = r.message || "(unnamed)";
+              if (label.length > 40) label = label.slice(0, 40) + "…";
+              if (r.isDemo) label += " (demo)";
+              return buildRow(label, r.message, "toast", r.suggested);
+            }
+          );
+        }
+
+        // Walk Screen 03's mapping rows and collect the user's choices,
+        // grouped by kind. Each entry is { sourceKey: variantValue }.
+        // If a kind has no rows, the entry is an empty object.
+        function scrapeVariantChoices(screen03) {
+          var out = { systemStates: {}, modal: {}, toast: {} };
+          if (!screen03) return out;
+          var selects = screen03.querySelectorAll(".mapping-row__select");
+          for (var i = 0; i < selects.length; i++) {
+            var s = selects[i];
+            var kind = s.getAttribute("data-kind");
+            var key = s.getAttribute("data-key");
+            if (!kind || !key || !out[kind]) continue;
+            out[kind][key] = s.value;
+          }
+          return out;
+        }
+
+        function populateParseResults(data) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          if (allCells.length < 2) return;
+          var screen02 = allCells[1];
+          var cards = screen02.querySelectorAll(".card");
+          // Card order in mockup: States, Modals, Toasts, DS components used
+          var sections = [
+            { card: cards[0], items: (data.states || []).map(function (s) {
+                return { name: s, meta: "" };
+              }) },
+            { card: cards[1], items: (data.modals || []).map(function (m) {
+                return { name: m, meta: "" };
+              }) },
+            { card: cards[2], items: (data.toasts || []).map(function (t) {
+                return {
+                  name: t.message,
+                  meta: t.variant,
+                  pillText: t.isDemo ? "Demo only" : null,
+                  excluded: !!t.isDemo,
+                };
+              }) },
+            { card: cards[3], items: (data.dsComponents || []).map(function (c) {
+                return { name: c, meta: "" };
+              }) },
+          ];
+          sections.forEach(function (s) {
+            if (!s.card) return;
+            updateCard(s.card, s.items);
+          });
+        }
+
+        function updateCard(card, items) {
+          var countEl = card.querySelector(".card__count");
+          var listEl = card.querySelector(".card__list");
+          if (countEl) countEl.textContent = items.length;
+          if (!listEl) return;
+          listEl.innerHTML = "";
+          items.forEach(function (item) {
+            var li = document.createElement("li");
+            li.className = "card__list-item card__list-item--clickable";
+            if (item.excluded) li.className += " card__list-item--excluded";
+            var nameSpan = document.createElement("span");
+            nameSpan.className = "card__list-item-name";
+            nameSpan.textContent = item.name;
+            li.appendChild(nameSpan);
+            if (item.pillText) {
+              var pill = document.createElement("span");
+              pill.className = "pill pill--demo";
+              pill.textContent = item.pillText;
+              li.appendChild(pill);
+            } else if (item.meta) {
+              var metaSpan = document.createElement("span");
+              metaSpan.className = "card__list-item-meta";
+              metaSpan.textContent = item.meta;
+              li.appendChild(metaSpan);
+            }
+            listEl.appendChild(li);
+          });
+        }
+
+        // ---- Listen for responses from code.js ----
+        window.addEventListener("message", function (e) {
+          var msg = e.data && e.data.pluginMessage;
+          if (!msg) return;
+          if (msg.type === "pages-list") {
+            renderPagesList(msg.pages || [], msg.currentTarget);
+            return;
+          }
+          if (msg.type === "target-set") {
+            if (targetPageLabel) targetPageLabel.textContent = msg.pageName;
+            return;
+          }
+          if (msg.type === "parse-result") {
+            if (msg.ok) {
+              // Cache parsed payload so Build can forward it back to code.js.
+              lastParsedData = msg.data || {};
+              lastVariantLists = msg.variantLists || null;
+              populateParseResults(msg.data || {});
+              // Populate Screen 03's mapping dropdowns with the auto-suggested
+              // variants. User reviews + adjusts before clicking Build.
+              if (msg.variantSuggestions && msg.variantLists) {
+                renderMappingScreen(msg.variantSuggestions, msg.variantLists);
+              }
+              if (msg.sync) renderDsSync(msg.sync);
+              navigateTo(1); // transition to Screen 02 (Parse preview)
+            } else {
+              console.error("Parse failed:", msg.error);
+              // TODO: inline error UI; for v0.1 first pass, console only.
+            }
+            return;
+          }
+          if (msg.type === "ds-sync-result") {
+            if (msg.sync) renderDsSync(msg.sync);
+            return;
+          }
+          if (msg.type === "progress") {
+            // phase=start carries `total` (and `section`); subsequent
+            // building messages carry index/total/name per artboard.
+            if (msg.phase === "start") {
+              updateBuildProgress(-1, msg.total || 0);
+              return;
+            }
+            if (msg.phase === "building") {
+              updateBuildProgress(msg.index || 0, msg.total || 0);
+              appendBuildLog(msg.name || "(unnamed)", "ok");
+            }
+            return;
+          }
+          if (msg.type === "build-complete") {
+            finalizeBuildProgress(msg.counts || {});
+            // Resolve the target page name for the Done subtitle.
+            // The dropdown label holds the user's current selection.
+            var pageName = "Claude output";
+            if (targetPageLabel && targetPageLabel.textContent) {
+              pageName = targetPageLabel.textContent.trim() || pageName;
+            }
+            showDoneScreen(msg.counts || {}, pageName);
+            if (msg.warnings && msg.warnings.length) {
+              for (var w = 0; w < msg.warnings.length; w++) {
+                appendBuildLog(msg.warnings[w], "warn");
+              }
+            }
+            return;
+          }
+          if (msg.type === "build-result") {
+            // Only sent on failure; success path uses build-complete.
+            if (!msg.ok) {
+              showBuildError(msg.error || "Build failed.");
+            }
+            return;
+          }
+          console.log("From plugin:", msg);
+        });
+
+        // ---- On UI load, request the page list to populate the dropdown ----
+        parent.postMessage({ pluginMessage: { type: "list-pages" } }, "*");
+
+        // Initial body sizing — after layout has settled in the iframe.
+        // requestAnimationFrame ensures topbar/footer have measured heights.
+        requestAnimationFrame(function () {
+          sizePanelBody();
+          // Second tick in case fonts/icons shift heights after first measure
+          requestAnimationFrame(sizePanelBody);
+        });
+      })();
+    </script>
+
+    <!-- ============================================================
+         Legend / design notes (hidden in plugin preview mode)
+         ============================================================ -->
+    <section class="legend">
+      <h2 class="legend__title">Design notes</h2>
+      <div class="legend__grid">
+        <div>
+          <h3>Why light theme</h3>
+          <p>Plugin panels render inside Figma's own UI, which is light-by-default. Mirroring HiNAS Cloud / Day-mode
+            tokens keeps the panel from looking out of place against Figma's chrome. The HiNAS Blue (<code>#1379F3</code>)
+            primary keeps the panel recognizably ours, not generic-Figma.</p>
+        </div>
+        <div>
+          <h3>Why 360 px wide</h3>
+          <p>Figma plugin panels have a sane max around 400 px before they crowd the canvas. 360 px gives a comfortable
+            two-column feel for the coverage table without forcing horizontal scroll inside the panel.</p>
+        </div>
+        <div>
+          <h3>Why the coverage review is a separate screen</h3>
+          <p>It's the single highest-leverage UX upgrade over the CLI. In the slash command, this table prints to
+            terminal mid-run. Here, the user can edit a coverage decision <em>before</em> any artboard is created.
+            Most runs spend more time on this screen than any other — that's the point.</p>
+        </div>
+        <div>
+          <h3>Why gates overlay rather than route</h3>
+          <p>The DS-conflict modal preserves the build context behind it. The user can see what step we're on, what's
+            already built, and what the question affects. A separate routed screen would lose that context and feel
+            more like an error than a deliberate confirmation.</p>
+        </div>
+        <div>
+          <h3>What's missing on purpose</h3>
+          <p>No render preview of the artboards before build (cost &gt; value in v0.1). No re-run diff (v0.3). No
+            settings panel beyond target page (v0.2 adds API key for Claude judgment steps). No multi-DS picker (v0.4).</p>
+        </div>
+        <div>
+          <h3>Resolved this round</h3>
+          <p>Row interaction → Option C, per-row drill-down (Screen 07).
+            Target page → inline dropdown anchored under the field (Screen 08, 09).
+            Create new page → inline input, no separate modal (Screen 09).
+            Build click → button shows processing state, then panel transitions to Screen 04 (Screen 10).
+            Field affordance → Screen 01 dropdown caret matches Screen 08, no more "Edit" text link.</p>
+        </div>
+        <div>
+          <h3>Still open</h3>
+          <p>Done screen: do we want a collapsible artboard list under the four-line summary, or is the summary enough?
+            Jargon sweep: "DS Candidate", "Pre-flight", "Defaults" still use internal vocabulary —
+            worth a one-pass cleanup before copy is locked.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ==========================================================
+       DS Candidate element picker overlay
+       Activated when the user clicks "Pick element" on a candidate.
+       Plugin UI resizes to take over Figma's canvas area, this
+       overlay covers everything, the user clicks the candidate's
+       element in the iframe (which renders their uploaded HTML),
+       html2canvas captures it as bytes, then the overlay closes
+       and the bytes are stashed for the build.
+       ========================================================== -->
+  <div id="pickerOverlay" class="picker-overlay" hidden>
+    <div class="picker-overlay__topbar">
+      <span class="picker-overlay__title">Pick element for: <strong id="pickerCandidateName">—</strong></span>
+      <span class="picker-overlay__hint" id="pickerHint">Click any element in the page below.</span>
+      <button class="picker-overlay__btn picker-overlay__btn--ghost" id="pickerCancelBtn" type="button">Cancel</button>
+      <button class="picker-overlay__btn picker-overlay__btn--primary" id="pickerCaptureBtn" type="button" disabled>Capture</button>
+    </div>
+    <div class="picker-overlay__stage">
+      <iframe class="picker-overlay__iframe" id="pickerIframe" sandbox="allow-same-origin allow-scripts"></iframe>
+    </div>
+  </div>
+</body>
+</html>
