@@ -227,6 +227,37 @@
     }
     .panel__footer--right { justify-content: flex-end; }
 
+    /* Screen L — Choose DS library */
+    .panel__caption {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .library-list { display: flex; flex-direction: column; gap: 6px; }
+    .library-list__item {
+      padding: 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: var(--bg-panel);
+    }
+    .library-list__item:hover { background: var(--bg-row-hover); }
+    .library-list__item.is-selected {
+      border-color: var(--primary);
+      outline: 1px solid var(--primary);
+    }
+    .library-list__name { font-weight: 500; color: var(--text-primary); }
+    .library-list__meta { font: 11px var(--font-mono); color: var(--text-secondary); }
+    .library-list__empty {
+      color: var(--text-secondary);
+      font-style: italic;
+      text-align: center;
+      padding: 24px;
+    }
+
     /* Status banner (DS sync, etc.) */
     .banner {
       display: flex;
@@ -2341,6 +2372,31 @@
         </p>
       </div>
 
+      <!-- ============================================================
+           Screen L (12th cell) — Choose DS library
+           New screen for library-first DS sourcing.
+           ============================================================ -->
+      <div class="strip__cell" id="screenL">
+        <div class="panel">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h2 class="panel__title">Choose DS library</h2>
+          </div>
+          <div class="panel__body">
+            <p class="panel__caption">Select the design system library to source DS components from. Persists per file.</p>
+            <div class="library-list" id="libraryList">
+              <p class="library-list__empty">Loading libraries…</p>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary" id="screenLCancel">Cancel</button>
+            <button class="btn btn--primary btn--lg" id="screenLUse" disabled>Use this library</button>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <script>
@@ -2946,6 +3002,80 @@
           }
         }
         wireFooterButtons();
+
+        // ---- Screen L (Choose DS library) ----
+        var screenLIdx = 11; // 12th .strip__cell (zero-indexed)
+        var screenLSelectedKey = null;
+        var screenLSelectedName = null;
+
+        function openScreenL() {
+          screenLSelectedKey = null;
+          screenLSelectedName = null;
+          var useBtn = document.getElementById("screenLUse");
+          if (useBtn) useBtn.disabled = true;
+          var list = document.getElementById("libraryList");
+          if (list) list.innerHTML = '<p class="library-list__empty">Loading libraries…</p>';
+          parent.postMessage({ pluginMessage: { type: "list-libraries" } }, "*");
+          navigateTo(screenLIdx);
+        }
+
+        function renderLibraryList(libraries, currentKey) {
+          var list = document.getElementById("libraryList");
+          if (!list) return;
+          list.innerHTML = "";
+          if (!libraries || libraries.length === 0) {
+            var empty = document.createElement("p");
+            empty.className = "library-list__empty";
+            empty.textContent = "No libraries available in this file. Enable a library via Figma's Assets panel, then re-open this picker.";
+            list.appendChild(empty);
+            return;
+          }
+          libraries.forEach(function (lib) {
+            var item = document.createElement("div");
+            item.className = "library-list__item";
+            if (lib.key === currentKey) {
+              item.classList.add("is-selected");
+              screenLSelectedKey = lib.key;
+              screenLSelectedName = lib.name;
+              var useBtn = document.getElementById("screenLUse");
+              if (useBtn) useBtn.disabled = false;
+            }
+            var name = document.createElement("div");
+            name.className = "library-list__name";
+            name.textContent = lib.name;
+            item.appendChild(name);
+            if (lib.lastModified) {
+              var meta = document.createElement("div");
+              meta.className = "library-list__meta";
+              meta.textContent = "Updated " + lib.lastModified;
+              item.appendChild(meta);
+            }
+            item.addEventListener("click", function () {
+              var allItems = list.querySelectorAll(".library-list__item");
+              for (var i = 0; i < allItems.length; i++) allItems[i].classList.remove("is-selected");
+              item.classList.add("is-selected");
+              screenLSelectedKey = lib.key;
+              screenLSelectedName = lib.name;
+              var useBtn = document.getElementById("screenLUse");
+              if (useBtn) useBtn.disabled = false;
+            });
+            list.appendChild(item);
+          });
+        }
+
+        var screenLCancel = document.getElementById("screenLCancel");
+        if (screenLCancel) screenLCancel.addEventListener("click", goBack);
+
+        var screenLUse = document.getElementById("screenLUse");
+        if (screenLUse) {
+          screenLUse.addEventListener("click", function () {
+            if (!screenLSelectedKey) return;
+            parent.postMessage(
+              { pluginMessage: { type: "select-library", key: screenLSelectedKey, name: screenLSelectedName } },
+              "*"
+            );
+          });
+        }
 
         // ---- Populate Screen 02 (Parse preview) with parsed data ----
         function renderDsSync(sync) {
@@ -3786,6 +3916,15 @@
             } else if (!msg.ok) {
               showBuildError(msg.error || "Build failed.");
             }
+            return;
+          }
+          if (msg.type === "libraries-list") {
+            renderLibraryList(msg.libraries || [], msg.currentKey);
+            return;
+          }
+          if (msg.type === "library-set") {
+            if (msg.sync) renderDsSync(msg.sync);
+            goBack(); // return to Screen 02 (or wherever we came from)
             return;
           }
           console.log("From plugin:", msg);
