@@ -240,6 +240,18 @@
     .banner--warning { background: var(--warning-subtle); color: #8B4A07; }
     .banner--info    { background: var(--primary-subtle); color: #0F4F9E; }
     .banner--error   { background: var(--danger-subtle); color: #8B2424; }
+    .inline-error {
+      margin-bottom: 12px;
+    }
+    .inline-error__actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .inline-error__actions .btn--sm {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
     .banner__icon {
       flex: 0 0 16px;
       display: inline-grid;
@@ -2370,6 +2382,49 @@
         // variants in each dropdown.
         var lastVariantLists = null;
 
+        // ---- Inline error banner helper ----
+        // Mounts a banner at the top of a screen's panel__body. Used by all error
+        // and gate paths: parse error, DS sync gate, build error, library load
+        // error, manual match validation. Auto-clears on screen transition.
+        function renderInlineError(screenCell, kind, message, actions) {
+          if (!screenCell) return;
+          var body = screenCell.querySelector(".panel__body");
+          if (!body) return;
+          // Remove any existing inline-error banner first
+          var existing = body.querySelector(".inline-error");
+          if (existing) existing.remove();
+          var banner = document.createElement("div");
+          banner.className = "inline-error banner banner--" +
+            (kind === "ds-sync" ? "warning" : "error");
+          banner.setAttribute("data-kind", kind);
+          var bodyEl = document.createElement("div");
+          bodyEl.className = "banner__body";
+          bodyEl.textContent = message;
+          banner.appendChild(bodyEl);
+          if (actions && actions.length) {
+            var actionsEl = document.createElement("div");
+            actionsEl.className = "inline-error__actions";
+            actions.forEach(function (action, idx) {
+              var btn = document.createElement("button");
+              btn.className =
+                "btn btn--sm " + (idx === 0 ? "btn--primary" : "btn--ghost");
+              btn.textContent = action.label;
+              btn.addEventListener("click", function () {
+                if (typeof action.onClick === "function") action.onClick();
+              });
+              actionsEl.appendChild(btn);
+            });
+            banner.appendChild(actionsEl);
+          }
+          body.insertBefore(banner, body.firstChild);
+        }
+
+        function clearInlineErrors(screenCell) {
+          if (!screenCell) return;
+          var banners = screenCell.querySelectorAll(".inline-error");
+          for (var i = 0; i < banners.length; i++) banners[i].remove();
+        }
+
         // ---- Screen 01: Paste HTML — wire file picker, drag-drop, textarea, Parse button ----
         var dropZone = firstCell.querySelector(".drop");
         var chooseFileBtn = dropZone && dropZone.querySelector(".btn--secondary");
@@ -2662,6 +2717,10 @@
         function showScreen(index) {
           var allCells = document.querySelectorAll(".strip__cell");
           for (var i = 0; i < allCells.length; i++) {
+            // Clear inline error banners on any screen we're leaving
+            if (allCells[i].classList.contains("is-active") && i !== index) {
+              clearInlineErrors(allCells[i]);
+            }
             allCells[i].classList.toggle("is-active", i === index);
           }
           // Re-measure after the screen change — different screens have
