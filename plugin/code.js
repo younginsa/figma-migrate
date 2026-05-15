@@ -246,16 +246,11 @@ function parseHtml(html) {
     var candName = match[1].trim();
     if (!candName || seenCandidates[candName]) continue;
     seenCandidates[candName] = true;
-    // Also try to capture the element's visible text content for later
-    // text-override hints (best-effort regex; not a real DOM parser).
-    var textMatch = new RegExp(
-      "data-ds-candidate\\s*=\\s*['\"]" +
-      candName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
-      "['\"][^>]*>([\\s\\S]*?)</", ""
-    );
-    var textRes = textMatch.exec(html);
-    var htmlText = textRes ? textRes[1].replace(/<[^>]+>/g, "").trim().slice(0, 200) : "";
-    candidates.push({ name: candName, htmlText: htmlText });
+    // v0.1: skip text extraction entirely — the regex-based capture
+    // stops at the first descendant closing tag and frequently picks up
+    // icon glyphs instead of the meaningful body. v0.2 should use a
+    // proper DOM walker; D3 has fallback behavior for missing text.
+    candidates.push({ name: candName, htmlText: "" });
   }
 
   return {

@@ -1609,7 +1609,7 @@
             <div class="candidates-card">
               <h3 class="candidates-card__title">
                 <span class="pill pill--candidate">DS candidates</span>
-                <span>9 structures not in the DS</span>
+                <span id="candidatesCount">9 structures not in the DS</span>
               </h3>
               <ul class="candidates-card__list" id="candidatesList">
                 <!-- Populated dynamically from parse-result.data.candidates -->
@@ -3541,6 +3541,15 @@
           if (!screen03) return;
           var list = screen03.querySelector("#candidatesList");
           if (!list) return;
+          var countSpan = screen03.querySelector("#candidatesCount");
+          if (countSpan) {
+            var n = (candidates && candidates.length) || 0;
+            if (n === 0) {
+              countSpan.textContent = "No structures flagged";
+            } else {
+              countSpan.textContent = n + " structure" + (n === 1 ? "" : "s") + " not in the DS";
+            }
+          }
           list.innerHTML = "";
           if (!candidates || candidates.length === 0) {
             var empty = document.createElement("li");
