@@ -1529,6 +1529,71 @@ figma.ui.onmessage = async (msg) => {
       break;
     }
 
+    case "register-manual-match": {
+      try {
+        var matches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        if (matches.length >= 50) {
+          figma.ui.postMessage({
+            type: "match-set",
+            error: "Cap of 50 manual matches reached for this file.",
+          });
+          break;
+        }
+        matches.push({
+          htmlSelector: msg.htmlSelector,
+          htmlText: msg.htmlText || "",
+          componentKey: msg.componentKey,
+          componentName: msg.componentName,
+          variantName: msg.variantName || null,
+          capturedAt: new Date().toISOString(),
+        });
+        await figma.clientStorage.setAsync("manualMatches", matches);
+        figma.ui.postMessage({
+          type: "match-set",
+          index: matches.length - 1,
+          matches: matches,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "match-set",
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "list-manual-matches": {
+      try {
+        var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        figma.ui.postMessage({ type: "manual-matches-list", matches: manualMatches });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "manual-matches-list",
+          matches: [],
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "remove-manual-match": {
+      try {
+        var matchesForRemove = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        if (typeof msg.index === "number" && msg.index >= 0 && msg.index < matchesForRemove.length) {
+          matchesForRemove.splice(msg.index, 1);
+          await figma.clientStorage.setAsync("manualMatches", matchesForRemove);
+        }
+        figma.ui.postMessage({ type: "manual-matches-list", matches: matchesForRemove });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "manual-matches-list",
+          matches: [],
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
     case "build": {
       // Run the build pipeline. Streams `progress` messages while it runs;
       // emits `build-complete` (success) or `build-result` (error) at the end.

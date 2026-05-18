@@ -771,6 +771,45 @@
       color: var(--text-primary);
     }
 
+    /* ---- Manual matches section (Screen 03) ---- */
+    .manual-matches-card { margin-top: 16px; }
+    .manual-matches-card__head {
+      display: flex; align-items: center; gap: 8px;
+      font: 600 13px var(--font-base, inherit);
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+    .manual-matches-card__head h3 {
+      margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary);
+    }
+    .manual-matches-card__count {
+      font: 11px var(--font-mono);
+      color: var(--text-secondary);
+      padding: 2px 6px;
+      background: var(--bg-row-hover);
+      border-radius: 3px;
+    }
+    .manual-matches-card__list { list-style: none; padding: 0; margin: 0 0 8px 0; }
+    .manual-matches-card__list li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-default);
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+    .manual-matches-card__list li:last-child { border-bottom: none; }
+    .manual-matches-card__list .remove-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-secondary); font-size: 14px;
+      padding: 2px 6px; margin-left: auto;
+      font-family: inherit;
+    }
+    .manual-matches-card__list .remove-btn:hover { color: var(--text-primary); }
+    .btn--sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
     /* ==========================================================
        Mapping sections (Screen 03 — System states / Modals / Toasts).
        Each section: header with count, then a list of source→variant
@@ -1755,6 +1794,17 @@
                 <!-- Populated dynamically from parse-result.data.candidates -->
               </ul>
             </div>
+
+            <section class="manual-matches-card">
+              <header class="manual-matches-card__head">
+                <h3>Manual matches</h3>
+                <span class="manual-matches-card__count" id="manualMatchesCount">0</span>
+              </header>
+              <ul class="manual-matches-card__list" id="manualMatchesList">
+                <!-- Populated dynamically from manual-matches-list message -->
+              </ul>
+              <button class="btn btn--ghost btn--sm" id="addManualMatchBtn" type="button">+ Add match</button>
+            </section>
           </div>
           <div class="panel__footer panel__footer--right">
             <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
@@ -3390,6 +3440,26 @@
           });
         }
 
+        var screenNCompleteEl = document.getElementById("screenNComplete");
+        if (screenNCompleteEl) {
+          screenNCompleteEl.addEventListener("click", function () {
+            if (!manualHtmlSelection || !manualDsSelection) return;
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "register-manual-match",
+                  htmlSelector: manualHtmlSelection.selector,
+                  htmlText: manualHtmlSelection.text,
+                  componentKey: manualDsSelection.componentKey,
+                  componentName: manualDsSelection.componentName,
+                },
+              },
+              "*"
+            );
+            // match-set handler closes Screen N and refreshes Screen 03 list
+          });
+        }
+
         // Called by Screen M when returnTarget === 'manual-match'.
         // Updates Screen N's DS field instead of registering a candidate mapping.
         function onManualMatchDsPicked(component) {
@@ -4109,7 +4179,41 @@
 
           // Repopulate mapping chips from any persisted state
           parent.postMessage({ pluginMessage: { type: "list-candidate-mappings" } }, "*");
+          parent.postMessage({ pluginMessage: { type: "list-manual-matches" } }, "*");
         }
+
+        function renderManualMatches(matches) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var s03 = allCells[2];
+          if (!s03) return;
+          var listEl = s03.querySelector("#manualMatchesList");
+          var countEl = s03.querySelector("#manualMatchesCount");
+          if (countEl) countEl.textContent = String((matches || []).length);
+          if (!listEl) return;
+          listEl.innerHTML = "";
+          (matches || []).forEach(function (m, idx) {
+            var li = document.createElement("li");
+            var label = document.createElement("span");
+            label.textContent = m.htmlSelector + " → " + m.componentName;
+            li.appendChild(label);
+            var removeBtn = document.createElement("button");
+            removeBtn.className = "remove-btn";
+            removeBtn.type = "button";
+            removeBtn.textContent = "×";
+            removeBtn.title = "Remove this match";
+            removeBtn.addEventListener("click", function () {
+              parent.postMessage(
+                { pluginMessage: { type: "remove-manual-match", index: idx } },
+                "*"
+              );
+            });
+            li.appendChild(removeBtn);
+            listEl.appendChild(li);
+          });
+        }
+
+        var addManualMatchBtn = document.getElementById("addManualMatchBtn");
+        if (addManualMatchBtn) addManualMatchBtn.addEventListener("click", openScreenN);
 
         // Walk Screen 03's mapping rows and collect the user's choices,
         // grouped by kind. Each entry is { sourceKey: variantValue }.
@@ -4397,6 +4501,25 @@
               manualDsSelection = null;
             }
             updateManualMatchFields();
+            return;
+          }
+          if (msg.type === "manual-matches-list") {
+            renderManualMatches(msg.matches || []);
+            return;
+          }
+          if (msg.type === "match-set") {
+            if (msg.error) {
+              var screenN = document.getElementById("screenN");
+              if (screenN) {
+                renderInlineError(screenN, "match", msg.error, [
+                  { label: "Dismiss", onClick: function () { clearInlineErrors(screenN); } },
+                ]);
+              }
+              return;
+            }
+            // Success: refresh list and close Screen N
+            renderManualMatches(msg.matches || []);
+            closeScreenN();
             return;
           }
           console.log("From plugin:", msg);
