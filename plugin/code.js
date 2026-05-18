@@ -13,6 +13,45 @@ figma.showUI(__html__, {
   title: "Figma-migrate",
 });
 
+figma.on("close", function () {
+  if (_selectionListenerActive) {
+    _selectionListenerActive = false;
+    try { figma.off("selectionchange", _postSelectionUpdate); } catch (eClose) {}
+  }
+});
+
+// ============================================================
+// Selection listener — for Phase E manual rescue match (Screen N).
+// UI starts the listener when entering Screen N, captures the user's
+// current Figma selection, and stops it when leaving. Only one
+// COMPONENT or INSTANCE selection produces an update.
+// ============================================================
+
+var _selectionListenerActive = false;
+
+function _postSelectionUpdate() {
+  if (!_selectionListenerActive) return;
+  var sel = figma.currentPage.selection;
+  if (sel && sel.length === 1 && (sel[0].type === "COMPONENT" || sel[0].type === "INSTANCE")) {
+    var node = sel[0];
+    var keyNode = node.type === "INSTANCE" ? node.mainComponent : node;
+    if (!keyNode) {
+      figma.ui.postMessage({ type: "selection-update", component: null });
+      return;
+    }
+    figma.ui.postMessage({
+      type: "selection-update",
+      component: {
+        key: keyNode.key,
+        name: keyNode.name,
+        parentName: keyNode.parent ? keyNode.parent.name : null,
+      },
+    });
+  } else {
+    figma.ui.postMessage({ type: "selection-update", component: null });
+  }
+}
+
 // ============================================================
 // DS sync — Design-system-page-only.
 // Walks the in-file "Design system" page for components and
@@ -1469,6 +1508,23 @@ figma.ui.onmessage = async (msg) => {
           type: "mapping-removed",
           error: e.message || String(e),
         });
+      }
+      break;
+    }
+
+    case "start-selection-listener": {
+      if (!_selectionListenerActive) {
+        _selectionListenerActive = true;
+        figma.on("selectionchange", _postSelectionUpdate);
+      }
+      _postSelectionUpdate(); // emit current state immediately
+      break;
+    }
+
+    case "stop-selection-listener": {
+      if (_selectionListenerActive) {
+        _selectionListenerActive = false;
+        figma.off("selectionchange", _postSelectionUpdate);
       }
       break;
     }
