@@ -747,6 +747,22 @@
       font-family: inherit;
     }
     .candidates-card__ds-btn:hover { background: rgba(19, 121, 243, 0.06); }
+    .candidates-card__remove-btn {
+      margin-left: 4px;
+      padding: 2px 6px;
+      font-size: 14px;
+      line-height: 1;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .candidates-card__remove-btn:hover {
+      background: var(--bg-row-hover);
+      color: var(--text-primary);
+    }
 
     /* ==========================================================
        Mapping sections (Screen 03 — System states / Modals / Toasts).
@@ -3846,6 +3862,22 @@
             });
             li.appendChild(pickDsBtn);
 
+            // × Remove button — only visible when mapping exists.
+            // Shown/hidden by mapping-set and mapping-removed handlers.
+            var removeBtn = document.createElement("button");
+            removeBtn.className = "candidates-card__remove-btn";
+            removeBtn.type = "button";
+            removeBtn.title = "Remove this mapping";
+            removeBtn.hidden = true;
+            removeBtn.textContent = "×";
+            removeBtn.addEventListener("click", function () {
+              parent.postMessage(
+                { pluginMessage: { type: "remove-candidate-mapping", candidateName: cand.name } },
+                "*"
+              );
+            });
+            li.appendChild(removeBtn);
+
             var status = document.createElement("span");
             status.className = "candidates-card__upload-status";
             status.hidden = true;
@@ -4064,7 +4096,7 @@
               console.error("Failed to set mapping:", msg.error);
               return;
             }
-            // Update the row's chip + DS button text + status check
+            // Update the row's chip + DS button text + status check + show remove
             var s03 = document.querySelectorAll(".strip__cell")[2];
             if (s03) {
               var row = s03.querySelector('[data-candidate="' + msg.candidateName + '"]');
@@ -4076,11 +4108,38 @@
                 }
                 var dsBtn = row.querySelector(".candidates-card__ds-btn");
                 if (dsBtn) dsBtn.textContent = "Change";
+                var removeBtn = row.querySelector(".candidates-card__remove-btn");
+                if (removeBtn) removeBtn.hidden = false;
                 var status = row.querySelector(".candidates-card__upload-status");
                 if (status) status.hidden = false;
               }
             }
             goBack(); // return from Screen M to Screen 03
+            return;
+          }
+          if (msg.type === "mapping-removed") {
+            if (msg.error) {
+              console.error("Failed to remove mapping:", msg.error);
+              return;
+            }
+            // Revert the row: hide chip + remove btn + status, reset DS btn text
+            var s03r = document.querySelectorAll(".strip__cell")[2];
+            if (s03r) {
+              var rowR = s03r.querySelector('[data-candidate="' + msg.candidateName + '"]');
+              if (rowR) {
+                var chipR = rowR.querySelector(".candidates-card__mapping-chip");
+                if (chipR) {
+                  chipR.textContent = "";
+                  chipR.hidden = true;
+                }
+                var dsBtnR = rowR.querySelector(".candidates-card__ds-btn");
+                if (dsBtnR) dsBtnR.textContent = "Pick DS component";
+                var removeBtnR = rowR.querySelector(".candidates-card__remove-btn");
+                if (removeBtnR) removeBtnR.hidden = true;
+                var statusR = rowR.querySelector(".candidates-card__upload-status");
+                if (statusR) statusR.hidden = true;
+              }
+            }
             return;
           }
           if (msg.type === "candidate-mappings-list") {
@@ -4097,6 +4156,8 @@
               }
               var dsBtn = row.querySelector(".candidates-card__ds-btn");
               if (dsBtn) dsBtn.textContent = "Change";
+              var removeBtn = row.querySelector(".candidates-card__remove-btn");
+              if (removeBtn) removeBtn.hidden = false;
               var status = row.querySelector(".candidates-card__upload-status");
               if (status) status.hidden = false;
             });

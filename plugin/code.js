@@ -1416,6 +1416,24 @@ figma.ui.onmessage = async (msg) => {
       break;
     }
 
+    case "remove-candidate-mapping": {
+      try {
+        var existingForRemove = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        delete existingForRemove[msg.candidateName];
+        await figma.clientStorage.setAsync("candidateMappings", existingForRemove);
+        figma.ui.postMessage({
+          type: "mapping-removed",
+          candidateName: msg.candidateName,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "mapping-removed",
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
     case "build": {
       // Run the build pipeline. Streams `progress` messages while it runs;
       // emits `build-complete` (success) or `build-result` (error) at the end.
