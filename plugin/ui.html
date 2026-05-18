@@ -1898,6 +1898,7 @@
               <li><span>Modal / state screens</span><span class="done__list-num">9</span></li>
               <li><span>Toast screens</span><span class="done__list-num">4</span></li>
               <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
+              <li><span>Matched elements</span><span class="done__list-num">0</span></li>
             </ul>
 
             <button class="btn btn--primary btn--lg btn--block">Show on canvas</button>
@@ -3955,6 +3956,7 @@
             counts.modals || 0,
             counts.toasts || 0,
             counts.candidates || 0,
+            counts.manualMatches || 0,
           ];
           for (var i = 0; i < listItems.length && i < countMap.length; i++) {
             var n = listItems[i].querySelector(".done__list-num");

@@ -883,6 +883,11 @@ async function buildArtboards(payload) {
   // DS Candidates band loop below to instantiate the real DS component
   // instead of the placeholder screenshot frame.
   var candidateMappings = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+  // Persisted manual rescue matches (E4): array of
+  //   { name, componentKey, componentName, htmlText }
+  // One artboard per entry is emitted in a "Matched elements" band
+  // after the DS Candidates band below.
+  var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
   var states = parsed.states || [];
@@ -1348,6 +1353,105 @@ async function buildArtboards(payload) {
   }
   counts.candidates = candidateNodes.length;
 
+  // ---- Matched elements band ----
+  // One artboard per persisted manual match (E4). Real DS instance +
+  // text overrides from the captured htmlText. Positioned in a new
+  // band below the DS Candidates band. Skipped entirely when there
+  // are no manual matches — no header, no artboards.
+  var matchedNodes = [];
+  counts.manualMatches = 0;
+  if (manualMatches.length > 0) {
+    // Compute the lowest Y used so far by the candidates band (the
+    // candidate frames sit at candidateOriginY + crow rows). If no
+    // candidates rendered, anchor below the band header instead.
+    var candRowCount = Math.ceil(candidatesWithImages.length / CAND_COLS);
+    var candidatesMaxY = candidatesWithImages.length > 0
+      ? candidateOriginY + candRowCount * (CAND_H + CAND_GAP_Y)
+      : candidateBandY + 80;
+    var matchBandY = candidatesMaxY + 200;
+    // Round up to next 1000 for visual consistency with other bands.
+    matchBandY = Math.ceil(matchBandY / 1000) * 1000;
+
+    var matchHeader = figma.createText();
+    try {
+      await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+      matchHeader.fontName = { family: "Inter", style: "Regular" };
+    } catch (eFont) {
+      // Default font fallback
+    }
+    matchHeader.fontSize = 32;
+    matchHeader.characters = "Matched elements — manually mapped";
+    matchHeader.x = BAND_X;
+    matchHeader.y = matchBandY;
+    targetPage.appendChild(matchHeader);
+    matchedNodes.push(matchHeader);
+
+    var matchArtboardY = matchBandY + 80;
+
+    for (var mi = 0; mi < manualMatches.length; mi++) {
+      if (_cancelRequested) {
+        counts.manualMatches = mi;
+        figma.ui.postMessage({
+          type: "build-result",
+          ok: false,
+          cancelled: true,
+          counts: counts,
+        });
+        return;
+      }
+      // Yield to event loop so cancel messages can be processed
+      await new Promise(function (r) { setTimeout(r, 0); });
+
+      var match = manualMatches[mi];
+      var matchArtboard = figma.createFrame();
+      matchArtboard.name = "Match — " + match.componentName;
+      matchArtboard.fills = [];
+      matchArtboard.clipsContent = true;
+      matchArtboard.resize(ARTBOARD_W, ARTBOARD_H);
+      targetPage.appendChild(matchArtboard);
+      matchArtboard.x = BAND_X + (mi % GRID_COLS) * GRID_STRIDE_X;
+      matchArtboard.y = matchArtboardY + Math.floor(mi / GRID_COLS) * GRID_STRIDE_Y;
+      matchedNodes.push(matchArtboard);
+
+      try {
+        var matchComp = await figma.importComponentByKeyAsync(match.componentKey);
+        if (matchComp) {
+          var matchInst = matchComp.createInstance();
+          matchArtboard.appendChild(matchInst);
+          // Center the instance in the artboard
+          matchInst.x = Math.round((ARTBOARD_W - matchInst.width) / 2);
+          matchInst.y = Math.round((ARTBOARD_H - matchInst.height) / 2);
+          // Apply text override from htmlText if available
+          if (match.htmlText) {
+            var textNodes = matchInst.findAll(function (n) { return n.type === "TEXT"; });
+            if (textNodes && textNodes.length > 0) {
+              try {
+                await figma.loadFontAsync(textNodes[0].fontName);
+                textNodes[0].characters = match.htmlText.slice(0, 200);
+              } catch (eText) { /* non-fatal */ }
+            }
+          }
+        } else {
+          warnings.push("Match — " + match.componentName + ": importComponentByKeyAsync returned null");
+          counts.warnings++;
+        }
+      } catch (eImport) {
+        warnings.push("Match — " + match.componentName + ": " + (eImport.message || String(eImport)));
+        counts.warnings++;
+      }
+
+      counts.manualMatches = mi + 1;
+      figma.ui.postMessage({
+        type: "progress",
+        phase: "building",
+        index: mi,
+        total: manualMatches.length,
+        section: "manual-matches",
+        name: matchArtboard.name,
+      });
+    }
+  }
+
   // 7. Save IDs of all created nodes so view-on-canvas can scroll
   // and zoom directly to them. Storing IDs (not coords) lets Figma
   // compute the correct viewport even if the user has manually moved
@@ -1355,6 +1459,7 @@ async function buildArtboards(payload) {
   var allNodeIds = [];
   for (var n = 0; n < createdNodes.length; n++) allNodeIds.push(createdNodes[n].id);
   for (var n2 = 0; n2 < candidateNodes.length; n2++) allNodeIds.push(candidateNodes[n2].id);
+  for (var n3 = 0; n3 < matchedNodes.length; n3++) allNodeIds.push(matchedNodes[n3].id);
   if (bandLabel && bandLabel.id) allNodeIds.push(bandLabel.id);
 
   await figma.clientStorage.setAsync("lastBuiltBand", {
