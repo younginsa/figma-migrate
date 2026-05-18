@@ -985,42 +985,81 @@ async function buildArtboards(payload) {
       var dialog = null;
 
       // Branch A: system-state screens (loading/empty/error) — build
-      // with System states master ALONE. The Setting dialog has its
-      // own default empty-state body that would overlap visually with
-      // the System states content (e.g., loading spinner stacked on
-      // top of "No profile ID is found"). Drop the dialog for these.
+      // with the SAME Setting dialog wrapper as content states so they
+      // share header/tabs chrome. Then drop the System states component
+      // into the dialog body and hide the default body children to
+      // avoid visual overlap with the dialog's own empty-state content.
       if (sysVariant) {
-        artboard = figma.createFrame();
-        artboard.name = spec.name;
-        artboard.fills = [];
-        artboard.clipsContent = true;
-        artboard.resize(ARTBOARD_W, ARTBOARD_H);
-        targetPage.appendChild(artboard);
-        artboard.x = x;
-        artboard.y = y;
-
-        var sysRes = await safeOverlayInstance(
-          artboard,
-          DS_KEYS.SystemStates,
-          sysVariant,
-          0, 0
-        );
-        if (sysRes.ok && sysRes.instance) {
-          // Center the System states instance in the artboard.
-          var siW = sysRes.instance.width;
-          var siH = sysRes.instance.height;
-          sysRes.instance.x = Math.round((ARTBOARD_W - siW) / 2);
-          sysRes.instance.y = Math.round((ARTBOARD_H - siH) / 2);
-          // Apply the wrapper bg to match the screen artboards' dark
-          // theme (sampled from a previous dialog if available).
-          if (sampledStyles && sampledStyles.bgFills) {
-            artboard.fills = sampledStyles.bgFills;
-          } else {
-            artboard.fills = [{ type: "SOLID", color: { r: 0.13, g: 0.14, b: 0.17 } }];
-          }
-        } else {
-          warnings.push(spec.name + ": System states overlay — " + (sysRes.reason || "unknown"));
+        var built = await buildArtboardWithDialog(spec.name);
+        if (!built || !built.artboard) {
+          warnings.push(spec.name + ": Setting dialog wrapper failed to build");
           counts.warnings++;
+          // Fall through to bare-frame fallback so the artboard still slots.
+          artboard = figma.createFrame();
+          artboard.name = spec.name;
+          artboard.fills = [];
+          artboard.clipsContent = true;
+          artboard.resize(ARTBOARD_W, ARTBOARD_H);
+          targetPage.appendChild(artboard);
+          artboard.x = x;
+          artboard.y = y;
+        } else {
+          artboard = built.artboard;
+          dialog = built.dialog;
+          targetPage.appendChild(artboard);
+          artboard.x = x;
+          artboard.y = y;
+
+          // Find the dialog body (the "body" or content frame inside the
+          // dialog) and replace its default contents with the System
+          // states component.
+          var dialogBody = dialog
+            ? (dialog.findOne(function (n) {
+                return n.type === "FRAME" && /^body$/i.test(n.name);
+              }) || dialog.findOne(function (n) {
+                return n.type === "FRAME" && /content/i.test(n.name);
+              }))
+            : null;
+          if (dialogBody) {
+            // Hide existing body children (the default empty-state
+            // content the dialog ships with — would overlap visually
+            // with System states).
+            for (var bi = 0; bi < dialogBody.children.length; bi++) {
+              try { dialogBody.children[bi].visible = false; } catch (eVis) {}
+            }
+          }
+
+          var sysHost = dialogBody || artboard;
+          var sysRes = await safeOverlayInstance(
+            sysHost,
+            DS_KEYS.SystemStates,
+            sysVariant,
+            0, 0
+          );
+          if (sysRes.ok && sysRes.instance) {
+            // Center within the target container (dialogBody if present,
+            // else artboard).
+            var siW = sysRes.instance.width;
+            var siH = sysRes.instance.height;
+            sysRes.instance.x = Math.round((sysHost.width - siW) / 2);
+            sysRes.instance.y = Math.round((sysHost.height - siH) / 2);
+          } else {
+            warnings.push(spec.name + ": System states overlay — " + (sysRes.reason || "unknown"));
+            counts.warnings++;
+          }
+
+          // Retarget the dialog labels (title, tabs) so the wrapper
+          // reads as the same section/state as content-state screens.
+          if (dialog) {
+            try {
+              await retargetDialogLabels(dialog, section, spec.stateName, tabs);
+            } catch (eR) {
+              // non-fatal: label retarget failure shouldn't block build.
+            }
+            if (!sampledStyles) {
+              sampledStyles = collectStyleSamples(dialog);
+            }
+          }
         }
       } else {
         // Branch B: content states + modal/toast carriers — build with
