@@ -3380,6 +3380,29 @@
           });
         }
 
+        var manualBrowseLibBtn = document.getElementById("manualBrowseLib");
+        if (manualBrowseLibBtn) {
+          manualBrowseLibBtn.addEventListener("click", function () {
+            // Open Screen M with returnTarget='manual-match'.
+            // Screen M's Match button will call window.onManualMatchDsPicked
+            // (defined below) instead of registering a candidate mapping.
+            openScreenM(null, "manual-match");
+          });
+        }
+
+        // Called by Screen M when returnTarget === 'manual-match'.
+        // Updates Screen N's DS field instead of registering a candidate mapping.
+        function onManualMatchDsPicked(component) {
+          manualDsSelection = {
+            componentKey: component.componentKey,
+            componentName: component.componentName,
+            parentName: null,
+          };
+          updateManualMatchFields();
+        }
+        // Make it findable by Screen M's match handler (which uses window.onManualMatchDsPicked).
+        window.onManualMatchDsPicked = onManualMatchDsPicked;
+
         // ---- Populate Screen 02 (Parse preview) with parsed data ----
         function renderDsSync(sync) {
           var banner = document.getElementById("dsSyncBanner");
@@ -4358,6 +4381,22 @@
               var status = row.querySelector(".candidates-card__upload-status");
               if (status) status.hidden = false;
             });
+            return;
+          }
+          if (msg.type === "selection-update") {
+            // Only act when Screen N is the active screen
+            var cellsForSel = document.querySelectorAll(".strip__cell");
+            if (!cellsForSel[screenNIdx] || !cellsForSel[screenNIdx].classList.contains("is-active")) return;
+            if (msg.component) {
+              manualDsSelection = {
+                componentKey: msg.component.key,
+                componentName: msg.component.name,
+                parentName: msg.component.parentName,
+              };
+            } else {
+              manualDsSelection = null;
+            }
+            updateManualMatchFields();
             return;
           }
           console.log("From plugin:", msg);
