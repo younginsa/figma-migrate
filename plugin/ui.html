@@ -1452,6 +1452,56 @@
       font-size: 12px;
       color: var(--text-muted);
     }
+
+    /* ---- Screen N (Manual rescue match) ---- */
+    .manual-match__body { display: flex; flex-direction: column; gap: 12px; }
+    .manual-match__fields { display: flex; gap: 12px; }
+    .manual-match__field {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: var(--bg-row-hover);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+    }
+    .manual-match__field-label {
+      font: 11px var(--font-mono);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .manual-match__field-value {
+      font-weight: 500;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+    .manual-match__field.is-empty .manual-match__field-value {
+      color: var(--text-secondary);
+      font-style: italic;
+      font-weight: 400;
+    }
+    .manual-match__browse-link {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 11px;
+      padding: 0;
+      cursor: pointer;
+      align-self: flex-start;
+      text-decoration: underline;
+      font-family: inherit;
+    }
+    .manual-match__iframe {
+      flex: 1;
+      width: 100%;
+      min-height: 500px;
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: white;
+    }
   </style>
 </head>
 <body>
@@ -2455,6 +2505,41 @@
         </div>
       </div>
 
+      <!-- ============================================================
+           Screen N (13th cell) — Manual match for parser misses
+           Two-field flow: HTML iframe click → Select from HTML;
+           Figma canvas selection → Select from DS; both filled →
+           Match complete CTA enabled.
+           ============================================================ -->
+      <div class="strip__cell" id="screenN">
+        <div class="panel">
+          <div class="panel__topbar">
+            <button class="panel__back" aria-label="Back" id="screenNBack">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h2 class="panel__title">Manual match — for parser misses</h2>
+          </div>
+          <div class="panel__body manual-match__body">
+            <div class="manual-match__fields">
+              <div class="manual-match__field is-empty" id="manualHtmlField">
+                <span class="manual-match__field-label">Select from HTML</span>
+                <span class="manual-match__field-value" id="manualHtmlValue">Click an element in the preview below</span>
+              </div>
+              <div class="manual-match__field is-empty" id="manualDsField">
+                <span class="manual-match__field-label">Select from DS</span>
+                <span class="manual-match__field-value" id="manualDsValue">Select a component in Figma</span>
+                <button class="manual-match__browse-link" id="manualBrowseLib" type="button">Browse library instead</button>
+              </div>
+            </div>
+            <iframe class="manual-match__iframe" id="manualMatchIframe" sandbox="allow-same-origin allow-scripts"></iframe>
+          </div>
+          <div class="panel__footer panel__footer--right">
+            <button class="btn btn--secondary" id="screenNCancel">Cancel</button>
+            <button class="btn btn--primary btn--lg" id="screenNComplete" disabled>Match complete</button>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <script>
@@ -3181,6 +3266,116 @@
                 "*"
               );
               // mapping-set handler (added in Task D2) will navigate back
+            }
+          });
+        }
+
+        // ---- Screen N (Manual rescue match) ----
+        var screenNIdx = 12; // 13th .strip__cell (zero-indexed)
+        var manualHtmlSelection = null; // {selector, text}
+        var manualDsSelection = null;   // {componentKey, componentName, parentName}
+
+        function openScreenN() {
+          manualHtmlSelection = null;
+          manualDsSelection = null;
+          updateManualMatchFields();
+          // Load HTML into iframe (uses textarea value as source)
+          var iframe = document.getElementById("manualMatchIframe");
+          if (iframe && htmlInput && htmlInput.value) {
+            iframe.srcdoc = htmlInput.value;
+          }
+          // Resize plugin window to give iframe room
+          parent.postMessage({ pluginMessage: { type: "resize-ui", width: 800, height: 900 } }, "*");
+          // Start listening to Figma selection (for E3's DS field; harmless now)
+          parent.postMessage({ pluginMessage: { type: "start-selection-listener" } }, "*");
+          navigateTo(screenNIdx);
+        }
+
+        function closeScreenN() {
+          parent.postMessage({ pluginMessage: { type: "stop-selection-listener" } }, "*");
+          parent.postMessage({ pluginMessage: { type: "resize-ui", width: 380, height: 800 } }, "*");
+          goBack();
+        }
+
+        function updateManualMatchFields() {
+          var htmlField = document.getElementById("manualHtmlField");
+          var htmlValue = document.getElementById("manualHtmlValue");
+          var dsField = document.getElementById("manualDsField");
+          var dsValue = document.getElementById("manualDsValue");
+          var completeBtn = document.getElementById("screenNComplete");
+          if (htmlField && htmlValue) {
+            if (manualHtmlSelection) {
+              htmlField.classList.remove("is-empty");
+              htmlValue.textContent = manualHtmlSelection.selector +
+                (manualHtmlSelection.text ? " — \"" + manualHtmlSelection.text.slice(0, 60) + "\"" : "");
+            } else {
+              htmlField.classList.add("is-empty");
+              htmlValue.textContent = "Click an element in the preview below";
+            }
+          }
+          if (dsField && dsValue) {
+            if (manualDsSelection) {
+              dsField.classList.remove("is-empty");
+              dsValue.textContent = manualDsSelection.componentName +
+                (manualDsSelection.parentName ? " (" + manualDsSelection.parentName + ")" : "");
+            } else {
+              dsField.classList.add("is-empty");
+              dsValue.textContent = "Select a component in Figma";
+            }
+          }
+          if (completeBtn) completeBtn.disabled = !(manualHtmlSelection && manualDsSelection);
+        }
+
+        var screenNCancelEl = document.getElementById("screenNCancel");
+        if (screenNCancelEl) screenNCancelEl.addEventListener("click", closeScreenN);
+        var screenNBackEl = document.getElementById("screenNBack");
+        if (screenNBackEl) screenNBackEl.addEventListener("click", closeScreenN);
+
+        // Wire iframe element click → updates manualHtmlSelection
+        var manualIframe = document.getElementById("manualMatchIframe");
+        if (manualIframe) {
+          manualIframe.addEventListener("load", function () {
+            try {
+              var doc = manualIframe.contentDocument;
+              if (!doc) return;
+              var style = doc.createElement("style");
+              style.textContent =
+                ".__manual-hover { outline: 2px solid #4ec3ff !important; outline-offset: 2px !important; cursor: crosshair !important; }" +
+                ".__manual-selected { outline: 3px solid #2563eb !important; outline-offset: 3px !important; }";
+              doc.head.appendChild(style);
+              var selectedEl = null;
+              var hoveredEl = null;
+              doc.addEventListener("mouseover", function (e) {
+                if (hoveredEl) hoveredEl.classList.remove("__manual-hover");
+                hoveredEl = e.target;
+                if (hoveredEl && hoveredEl !== selectedEl) hoveredEl.classList.add("__manual-hover");
+              }, true);
+              doc.addEventListener("mouseout", function () {
+                if (hoveredEl) { hoveredEl.classList.remove("__manual-hover"); hoveredEl = null; }
+              }, true);
+              doc.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (selectedEl) selectedEl.classList.remove("__manual-selected");
+                selectedEl = e.target;
+                if (selectedEl) {
+                  selectedEl.classList.remove("__manual-hover");
+                  selectedEl.classList.add("__manual-selected");
+                  var tag = (selectedEl.tagName || "").toLowerCase();
+                  var cls = "";
+                  if (selectedEl.className && typeof selectedEl.className === "string") {
+                    cls = "." + selectedEl.className.split(/\s+/)
+                      .filter(function (c) { return c && c.indexOf("__manual") !== 0; })
+                      .join(".");
+                  }
+                  var selector = tag + (cls === "." ? "" : cls);
+                  var text = (selectedEl.textContent || "").trim().slice(0, 200);
+                  manualHtmlSelection = { selector: selector, text: text };
+                  updateManualMatchFields();
+                }
+              }, true);
+            } catch (eIframe) {
+              console.error("Manual iframe wire failed:", eIframe);
             }
           });
         }
