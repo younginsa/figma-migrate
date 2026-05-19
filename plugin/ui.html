@@ -1032,6 +1032,52 @@
       font-size: 11px;
       border-top: 0 !important;
     }
+    /* Phase H3 — pattern→DS mapping chip (mirrors candidates chip).
+       Shown once the user has picked a DS component for a pattern row. */
+    .patterns-card__mapping-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px 4px 8px;
+      font-size: 11px;
+      background: rgba(19, 121, 243, 0.1);
+      color: var(--primary);
+      border: none;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .patterns-card__mapping-chip__label {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--primary);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    .patterns-card__mapping-chip__label:hover { text-decoration: underline; }
+    .patterns-card__mapping-chip__close {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: rgba(0, 0, 0, 0.35);
+      font-size: 16px;
+      line-height: 1;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      font-family: inherit;
+      border-radius: 50%;
+      margin: 0 2px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .patterns-card__mapping-chip__close:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: rgba(0, 0, 0, 0.7);
+    }
 
     /* ==========================================================
        Mapping sections (Screen 03 — System states / Modals / Toasts).
@@ -2227,6 +2273,7 @@
               <li><span>Toast screens</span><span class="done__list-num">4</span></li>
               <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
               <li><span>Matched elements</span><span class="done__list-num">0</span></li>
+              <li><span>Pattern-mapped elements</span><span class="done__list-num">0</span></li>
               <details class="done__warnings" hidden>
                 <summary>
                   <span class="done__list-num done__list-num--warn">0</span>
@@ -3662,15 +3709,18 @@
               }
               goBack();
             } else if (screenMReturnTarget === "pattern") {
-              // Phase H2 placeholder — log selection only. Persistence lands in
-              // H3 (replace this log with a `register-pattern-mapping` postMessage),
-              // build-time lookup lands in H4. Stub keeps the click handler safe.
-              console.log("Pattern mapping picked (not yet persisted in H2):", {
-                signature: screenMCurrentCandidate,
-                componentKey: screenMSelectedComponent.componentKey,
-                componentName: screenMSelectedComponent.componentName,
-              });
-              goBack();
+              parent.postMessage(
+                {
+                  pluginMessage: {
+                    type: "register-pattern-mapping",
+                    signature: screenMCurrentCandidate, // signature passed in as candidateName
+                    componentKey: screenMSelectedComponent.componentKey,
+                    componentName: screenMSelectedComponent.componentName,
+                  },
+                },
+                "*"
+              );
+              // pattern-mapping-set handler navigates back + updates the row
             } else {
               // Default: register a candidate mapping via code.js
               parent.postMessage(
@@ -4372,6 +4422,7 @@
             counts.toasts || 0,
             counts.candidates || 0,
             counts.manualMatches || 0,
+            counts.patterns || 0,
           ];
           for (var i = 0; i < listItems.length && i < countMap.length; i++) {
             var n = listItems[i].querySelector(".done__list-num");
@@ -4706,6 +4757,9 @@
 
             listEl.appendChild(li);
           });
+          // Rehydrate from persisted mappings (Phase H3) — runs every time
+          // patterns are rendered so chips appear immediately on re-parse.
+          parent.postMessage({ pluginMessage: { type: "list-pattern-mappings" } }, "*");
         }
 
         var addManualMatchBtn = document.getElementById("addManualMatchBtn");
@@ -4980,6 +5034,137 @@
               fillMappingChip(chip, mappings[name].componentName, name);
               var dsBtn = row.querySelector(".candidates-card__ds-btn");
               if (dsBtn) dsBtn.style.display = "none";
+            });
+            return;
+          }
+          if (msg.type === "pattern-mapping-set") {
+            if (msg.error) {
+              console.error("Failed to set pattern mapping:", msg.error);
+              return;
+            }
+            // Update the row's UI to show the mapping. Signatures contain dots
+            // (".tag.cls-a.cls-b") so we can't use them inside a CSS selector
+            // without escaping — querySelectorAll + filter avoids the issue.
+            var s03p = document.querySelectorAll(".strip__cell")[2];
+            if (s03p) {
+              var rowsP = s03p.querySelectorAll("#patternsList > li[data-signature]");
+              var rowP = null;
+              for (var rpi = 0; rpi < rowsP.length; rpi++) {
+                if (rowsP[rpi].getAttribute("data-signature") === msg.signature) {
+                  rowP = rowsP[rpi];
+                  break;
+                }
+              }
+              if (rowP) {
+                var pickBtnP = rowP.querySelector(".patterns-card__pick");
+                if (pickBtnP) {
+                  var chipP = document.createElement("span");
+                  chipP.className = "patterns-card__mapping-chip";
+                  var labelP = document.createElement("button");
+                  labelP.className = "patterns-card__mapping-chip__label";
+                  labelP.type = "button";
+                  labelP.title = "Change DS component";
+                  labelP.textContent = "→ " + msg.componentName;
+                  var sigSet = msg.signature;
+                  labelP.addEventListener("click", withNavLock(function () {
+                    openScreenM(sigSet, "pattern");
+                  }));
+                  chipP.appendChild(labelP);
+                  var closeP = document.createElement("button");
+                  closeP.className = "patterns-card__mapping-chip__close";
+                  closeP.type = "button";
+                  closeP.title = "Remove mapping";
+                  closeP.textContent = "×";
+                  closeP.addEventListener("click", function () {
+                    parent.postMessage(
+                      { pluginMessage: { type: "remove-pattern-mapping", signature: sigSet } },
+                      "*"
+                    );
+                  });
+                  chipP.appendChild(closeP);
+                  pickBtnP.replaceWith(chipP);
+                }
+              }
+            }
+            goBack(); // return from Screen M
+            return;
+          }
+          if (msg.type === "pattern-mapping-removed") {
+            if (msg.error) {
+              console.error("Failed to remove pattern mapping:", msg.error);
+              return;
+            }
+            // Revert row to show Pick DS component button
+            var s03rp = document.querySelectorAll(".strip__cell")[2];
+            if (s03rp) {
+              var rowsRP = s03rp.querySelectorAll("#patternsList > li[data-signature]");
+              var rowRP = null;
+              for (var rrpi = 0; rrpi < rowsRP.length; rrpi++) {
+                if (rowsRP[rrpi].getAttribute("data-signature") === msg.signature) {
+                  rowRP = rowsRP[rrpi];
+                  break;
+                }
+              }
+              if (rowRP) {
+                var chipRP = rowRP.querySelector(".patterns-card__mapping-chip");
+                if (chipRP) {
+                  var newPick = document.createElement("button");
+                  newPick.className = "patterns-card__pick";
+                  newPick.type = "button";
+                  newPick.textContent = "Pick DS component";
+                  var sigRem = msg.signature;
+                  newPick.addEventListener("click", withNavLock(function () {
+                    openScreenM(sigRem, "pattern");
+                  }));
+                  chipRP.replaceWith(newPick);
+                }
+              }
+            }
+            return;
+          }
+          if (msg.type === "pattern-mappings-list") {
+            // Hydrate UI from persisted mappings — called after renderHtmlPatterns
+            var s03l = document.querySelectorAll(".strip__cell")[2];
+            if (!s03l) return;
+            var patternMappingsHydrate = msg.mappings || {};
+            var rowsL = s03l.querySelectorAll("#patternsList > li[data-signature]");
+            Object.keys(patternMappingsHydrate).forEach(function (sig) {
+              var rowL = null;
+              for (var rli = 0; rli < rowsL.length; rli++) {
+                if (rowsL[rli].getAttribute("data-signature") === sig) {
+                  rowL = rowsL[rli];
+                  break;
+                }
+              }
+              if (!rowL) return;
+              var pickBtnL = rowL.querySelector(".patterns-card__pick");
+              if (pickBtnL) {
+                var chipL = document.createElement("span");
+                chipL.className = "patterns-card__mapping-chip";
+                var labelL = document.createElement("button");
+                labelL.className = "patterns-card__mapping-chip__label";
+                labelL.type = "button";
+                labelL.title = "Change DS component";
+                labelL.textContent = "→ " + patternMappingsHydrate[sig].componentName;
+                var sigCaptured = sig;
+                labelL.addEventListener("click", withNavLock(function () {
+                  openScreenM(sigCaptured, "pattern");
+                }));
+                chipL.appendChild(labelL);
+                var closeL = document.createElement("button");
+                closeL.className = "patterns-card__mapping-chip__close";
+                closeL.type = "button";
+                closeL.title = "Remove mapping";
+                closeL.textContent = "×";
+                closeL.addEventListener("click", function () {
+                  parent.postMessage(
+                    { pluginMessage: { type: "remove-pattern-mapping", signature: sigCaptured } },
+                    "*"
+                  );
+                });
+                chipL.appendChild(closeL);
+                pickBtnL.replaceWith(chipL);
+              }
             });
             return;
           }

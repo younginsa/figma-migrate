@@ -1079,6 +1079,9 @@ async function buildArtboards(payload) {
   // One artboard per entry is emitted in a "Matched elements" band
   // after the DS Candidates band below.
   var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+  // Persisted pattern→DS-component mappings (H3): { signature → { componentKey, componentName, variantName } }
+  // The H4 "Pattern-mapped elements" band emits one artboard per mapped pattern.
+  var patternMappings = (await figma.clientStorage.getAsync("patternMappings")) || {};
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
   var states = parsed.states || [];
@@ -1178,7 +1181,7 @@ async function buildArtboards(payload) {
   var origin = computeBandOrigin(targetPage);
 
   // 5. Build each artboard
-  var counts = { states: 0, modals: 0, toasts: 0, candidates: 0, warnings: 0 };
+  var counts = { states: 0, modals: 0, toasts: 0, candidates: 0, warnings: 0, patterns: 0 };
   var warnings = [];
   var createdNodes = [];
 
@@ -1766,6 +1769,127 @@ async function buildArtboards(payload) {
     }
   }
 
+  // ============================================================
+  // Pattern-mapped elements band (Phase H4)
+  // For each HTML pattern with a user-defined DS mapping, instantiate
+  // the matched component in a "Pattern" band. One artboard per
+  // pattern (not per instance) — the goal is to document the
+  // HTML→DS contract visually, not duplicate every element.
+  // ============================================================
+  var patternsFromParse = (parsed && parsed.patterns) || [];
+  var mappedPatterns = patternsFromParse.filter(function (p) {
+    return patternMappings[p.signature] && patternMappings[p.signature].componentKey;
+  });
+  var patternNodes = [];
+
+  if (mappedPatterns.length > 0) {
+    // Compute lowest Y used so far. Mirror the candidates-band approach:
+    // anchor below whichever prior band actually rendered.
+    var priorBandMaxY;
+    if (manualMatches.length > 0) {
+      // matchArtboardY + ceil(N / GRID_COLS) rows * GRID_STRIDE_Y
+      priorBandMaxY = matchArtboardY + Math.ceil(manualMatches.length / GRID_COLS) * GRID_STRIDE_Y;
+    } else if (candidatesWithImages.length > 0) {
+      var candRowCount2 = Math.ceil(candidatesWithImages.length / CAND_COLS);
+      priorBandMaxY = candidateOriginY + candRowCount2 * (CAND_H + CAND_GAP_Y);
+    } else {
+      // Nothing else rendered below candidates header — anchor below it.
+      priorBandMaxY = candidateBandY + 80;
+    }
+    var patternBandY = priorBandMaxY + 200;
+    patternBandY = Math.ceil(patternBandY / 1000) * 1000;
+
+    var patternHeader = figma.createText();
+    try {
+      await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+      patternHeader.fontName = { family: "Inter", style: "Regular" };
+    } catch (eFont) {}
+    patternHeader.fontSize = 32;
+    patternHeader.characters = "Pattern-mapped elements — HTML→DS contract";
+    patternHeader.x = BAND_X;
+    patternHeader.y = patternBandY;
+    targetPage.appendChild(patternHeader);
+    patternNodes.push(patternHeader);
+
+    var patternArtboardY = patternBandY + 80;
+
+    for (var pi = 0; pi < mappedPatterns.length; pi++) {
+      if (_cancelRequested) {
+        counts.patterns = pi;
+        figma.ui.postMessage({
+          type: "build-result",
+          ok: false,
+          cancelled: true,
+          counts: counts,
+        });
+        return;
+      }
+      // Yield to event loop so cancel messages can be processed
+      await new Promise(function (r) { setTimeout(r, 0); });
+
+      var pat = mappedPatterns[pi];
+      var patMapping = patternMappings[pat.signature];
+
+      var patArtboard = figma.createFrame();
+      patArtboard.name = "Pattern — " + pat.signature + " (×" + pat.count + ")";
+      patArtboard.fills = [];
+      patArtboard.clipsContent = true;
+      // Will resize after instance loads
+      patArtboard.resize(800, 200);
+      targetPage.appendChild(patArtboard);
+      patArtboard.x = BAND_X + (pi % GRID_COLS) * GRID_STRIDE_X;
+      patArtboard.y = patternArtboardY + Math.floor(pi / GRID_COLS) * GRID_STRIDE_Y;
+      patternNodes.push(patArtboard);
+
+      try {
+        var pComp = await figma.importComponentByKeyAsync(patMapping.componentKey);
+        if (!pComp) {
+          warnings.push("Pattern — " + pat.signature + ": importComponentByKeyAsync returned null. Mapping may be stale.");
+          counts.warnings++;
+          counts.patterns = pi + 1;
+          continue;
+        }
+        var pInst = pComp.createInstance();
+        patArtboard.appendChild(pInst);
+        try { pInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
+        if (!pInst.visible) {
+          try { pInst.visible = true; } catch (eVis) {}
+        }
+        // Resize artboard to component natural size + padding
+        var pPad = 60;
+        var pMinDim = 160;
+        var pAW = Math.max(pMinDim, pInst.width + pPad * 2);
+        var pAH = Math.max(pMinDim, pInst.height + pPad * 2);
+        patArtboard.resize(pAW, pAH);
+        pInst.x = Math.round((pAW - pInst.width) / 2);
+        pInst.y = Math.round((pAH - pInst.height) / 2);
+        // Apply text override from exampleText
+        if (pat.exampleText) {
+          var pTextNodes = pInst.findAll(function (n) { return n.type === "TEXT"; });
+          if (pTextNodes && pTextNodes.length > 0) {
+            try {
+              await figma.loadFontAsync(pTextNodes[0].fontName);
+              pTextNodes[0].characters = pat.exampleText.slice(0, 200);
+            } catch (eText) { /* non-fatal */ }
+          }
+        }
+      } catch (eImport) {
+        warnings.push("Pattern — " + pat.signature + ": " + (eImport.message || String(eImport)));
+        counts.warnings++;
+      }
+
+      counts.patterns = pi + 1;
+      figma.ui.postMessage({
+        type: "progress",
+        phase: "building",
+        index: pi,
+        total: mappedPatterns.length,
+        section: "patterns",
+        name: patArtboard.name,
+      });
+    }
+  }
+
   // 7. Save IDs of all created nodes so view-on-canvas can scroll
   // and zoom directly to them. Storing IDs (not coords) lets Figma
   // compute the correct viewport even if the user has manually moved
@@ -1774,6 +1898,7 @@ async function buildArtboards(payload) {
   for (var n = 0; n < createdNodes.length; n++) allNodeIds.push(createdNodes[n].id);
   for (var n2 = 0; n2 < candidateNodes.length; n2++) allNodeIds.push(candidateNodes[n2].id);
   for (var n3 = 0; n3 < matchedNodes.length; n3++) allNodeIds.push(matchedNodes[n3].id);
+  for (var n4 = 0; n4 < patternNodes.length; n4++) allNodeIds.push(patternNodes[n4].id);
   if (bandLabel && bandLabel.id) allNodeIds.push(bandLabel.id);
 
   await figma.clientStorage.setAsync("lastBuiltBand", {
@@ -1925,6 +2050,65 @@ figma.ui.onmessage = async (msg) => {
       } catch (e) {
         figma.ui.postMessage({
           type: "mapping-removed",
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "register-pattern-mapping": {
+      try {
+        var existingPatternMappings = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        existingPatternMappings[msg.signature] = {
+          componentKey: msg.componentKey,
+          componentName: msg.componentName,
+          variantName: msg.variantName || null,
+          // Phase H5 will add: wrapperConsumesChildren: false (default)
+        };
+        await figma.clientStorage.setAsync("patternMappings", existingPatternMappings);
+        figma.ui.postMessage({
+          type: "pattern-mapping-set",
+          signature: msg.signature,
+          componentName: msg.componentName,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "pattern-mapping-set",
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "list-pattern-mappings": {
+      try {
+        var patternMappingsList = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        figma.ui.postMessage({
+          type: "pattern-mappings-list",
+          mappings: patternMappingsList,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "pattern-mappings-list",
+          mappings: {},
+          error: e.message || String(e),
+        });
+      }
+      break;
+    }
+
+    case "remove-pattern-mapping": {
+      try {
+        var existingPatternForRemove = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        delete existingPatternForRemove[msg.signature];
+        await figma.clientStorage.setAsync("patternMappings", existingPatternForRemove);
+        figma.ui.postMessage({
+          type: "pattern-mapping-removed",
+          signature: msg.signature,
+        });
+      } catch (e) {
+        figma.ui.postMessage({
+          type: "pattern-mapping-removed",
           error: e.message || String(e),
         });
       }
