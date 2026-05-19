@@ -327,10 +327,13 @@
       color: var(--text-muted);
       transform: rotate(0deg);
       transition: transform 120ms ease;
-      /* Issue 4C — give the right caret a bit of breathing room from the
-         card edge. Previously it sat tight against .card__head's 12px
-         padding which read as too cramped. */
-      margin-right: 4px;
+      /* Issue 4C / Phase E v6 — give the right caret real breathing room
+         from the card edge. The prior 4px bump still read as too tight;
+         12px lands the chevron ~16px from the card right edge (12px from
+         this margin + 12px head padding − the chevron's own 14px width
+         feels balanced). */
+      margin-right: 12px;
+      flex-shrink: 0;
     }
     .card--open .card__chev { transform: rotate(180deg); }
     .card .card__body { display: none; }
@@ -769,7 +772,10 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 4px 4px 8px;
+      /* Phase E v6 — × no longer has a gray BG, so the chip's right padding
+         needs to be balanced against the 8px left padding. Reads visually
+         as [8px][→ Button][2px gap][× 16x16 w/ 2px margin][6px]. */
+      padding: 4px 6px 4px 8px;
       font-size: 11px;
       background: rgba(19, 121, 243, 0.1); /* light blue tint */
       color: var(--primary);
@@ -794,25 +800,28 @@
     }
     .candidates-card__mapping-chip__label:hover { text-decoration: underline; }
     .candidates-card__mapping-chip__close {
-      background: rgba(0, 0, 0, 0.08); /* gray BG behind × */
+      /* Phase E v6 — drop the persistent gray BG. The × stands alone; only
+         hover reveals a subtle BG so the affordance still surfaces on touch. */
+      background: transparent;
       border: none;
       cursor: pointer;
       color: var(--text-secondary);
       font-size: 12px;
       line-height: 1;
-      /* Issue 3 — perfect 16px circle, not a rounded rectangle. */
+      /* Issue 3 — perfect 16px circle (only visible on hover now). */
       width: 16px;
       height: 16px;
       padding: 0;
       font-family: inherit;
       border-radius: 50%;
-      margin-left: 4px;
+      /* Balanced 2px margin both sides — chip reads symmetrically. */
+      margin: 0 2px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
     }
     .candidates-card__mapping-chip__close:hover {
-      background: rgba(0, 0, 0, 0.15);
+      background: rgba(0, 0, 0, 0.08);
       color: var(--text-primary);
     }
     .candidates-card__ds-btn {
@@ -873,15 +882,28 @@
     /* Issue 4A — match .mapping-row's `padding: 6px 0` byte-for-byte so
        Manual matches list items align flush-left with Toasts/Modals rows
        in the same screen. Use border-top (not bottom) + skip the top edge
-       to mirror .mapping-row's separator behavior exactly. */
+       to mirror .mapping-row's separator behavior exactly.
+
+       Phase E v6 (Issue 6) — typography mirrors .mapping-row__source so the
+       Manual matches rows read as siblings of the Toasts/Modals rows: same
+       monospace font, same 500/11/1.4 metrics, same muted secondary color.
+       The label span gets flex+min-width:0 so long selectors ellipsis-truncate
+       instead of pushing the × button off-row. */
     .manual-matches-card__list li {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 0;
       border-top: 1px solid var(--border-subtle, #ececef);
-      font-size: 12px;
-      color: var(--text-primary);
+      font: 500 11px/1.4 var(--font-mono, monospace);
+      color: var(--text-secondary);
     }
     .manual-matches-card__list li:first-child { border-top: 0; }
+    .manual-matches-card__list li > span:first-child {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .manual-matches-card__list .remove-btn {
       background: none; border: none; cursor: pointer;
       color: var(--text-secondary); font-size: 14px;
@@ -1185,9 +1207,10 @@
     }
     .done__list-num { font: 500 11px/1.4 var(--font-mono); color: var(--text-primary); }
 
-    /* Expandable warnings on Done screen (Issue 1) — replaces the old
-       `<li class="done__warnings">` with a <details> so users can read the
-       full warning log inline instead of digging through the build log. */
+    /* Expandable warnings on Done screen (Issue 1 / Phase E v6) — replaces
+       the old `<li class="done__warnings">` with a <details>. The disclosure
+       affordance is now a right-side chevron (matching .card__head pattern
+       used by Toasts/Modals cards) instead of the prior left ▸ triangle. */
     .done__list details.done__warnings {
       list-style: none;
       display: block;
@@ -1196,30 +1219,32 @@
       border-radius: var(--radius-sm);
     }
     .done__list details.done__warnings[hidden] { display: none; }
+    .done__warnings {
+      list-style: none;
+    }
     .done__warnings summary {
       cursor: pointer;
       user-select: none;
       display: flex;
       align-items: center;
       gap: 8px;
-      list-style: none;
+      padding-right: 4px;
     }
-    .done__warnings summary::-webkit-details-marker { display: none; }
-    .done__warnings summary::before {
-      content: "▸";
-      font-size: 9px;
+    .done__warnings summary::-webkit-details-marker {
+      display: none;
+    }
+    .done__warnings__label {
+      flex: 1;
+    }
+    .done__warnings__chev {
       color: var(--text-secondary);
       transition: transform 0.15s;
-      display: inline-block;
+      margin-right: 4px;
+      flex-shrink: 0;
     }
-    .done__warnings[open] summary::before { transform: rotate(90deg); }
-    .done__warnings__hint {
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: normal;
-      margin-left: auto;
+    .done__warnings[open] .done__warnings__chev {
+      transform: rotate(180deg);
     }
-    .done__warnings[open] .done__warnings__hint { display: none; }
     .done__warnings__body {
       font: 11px/1.5 var(--font-mono);
       background: rgba(0, 0, 0, 0.04);
@@ -2081,7 +2106,11 @@
               <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
               <li><span>Matched elements</span><span class="done__list-num">0</span></li>
               <details class="done__warnings" hidden>
-                <summary><span class="done__list-num">0</span> Warnings <span class="done__warnings__hint">(click to expand)</span></summary>
+                <summary>
+                  <span class="done__list-num">0</span>
+                  <span class="done__warnings__label">Warnings</span>
+                  <svg class="done__warnings__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
                 <pre class="done__warnings__body" id="doneWarningsBody"></pre>
               </details>
             </ul>
