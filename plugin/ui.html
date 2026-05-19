@@ -1218,6 +1218,7 @@
       border-radius: var(--radius-sm);
     }
     .done__list-num { font: 500 11px/1.4 var(--font-mono); color: var(--text-primary); }
+    .done__list-num--warn { color: #c0392b; }
 
     /* Expandable warnings on Done screen (Issue 1 / Phase E v6) — replaces
        the old `<li class="done__warnings">` with a <details>. The disclosure
@@ -2119,7 +2120,7 @@
               <li><span>Matched elements</span><span class="done__list-num">0</span></li>
               <details class="done__warnings" hidden>
                 <summary>
-                  <span class="done__list-num">0</span>
+                  <span class="done__list-num done__list-num--warn">0</span>
                   <span class="done__warnings__label">Warnings</span>
                   <svg class="done__warnings__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                 </summary>
