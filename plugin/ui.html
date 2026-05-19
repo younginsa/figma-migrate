@@ -935,6 +935,104 @@
       font-size: 11px;
     }
 
+    /* ---- HTML patterns section (Screen 03, Phase H2) ----
+       Mirrors .manual-matches-card chrome (12px / bg-secondary / border /
+       radius-md) so it reads as a sibling of System states / Modals /
+       Toasts / Manual matches. Rows show class signature + count chip +
+       Pick DS component button; the picker reuses Screen M. */
+    .patterns-card {
+      margin-top: 0;
+      padding: 12px;
+      background: var(--bg-secondary, #fafafa);
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: var(--radius-md, 6px);
+    }
+    .patterns-card__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 4px;
+    }
+    .patterns-card__title {
+      margin: 0;
+      font: 600 12px/1.4 var(--font);
+      color: var(--text-primary);
+    }
+    .patterns-card__count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      background: var(--text-primary);
+      color: #fff;
+      border-radius: 9px;
+      font: 600 10px/1 var(--font);
+    }
+    .patterns-card__caption {
+      margin: 0 0 8px 0;
+      font: 400 11px/1.4 var(--font);
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+    .patterns-card__list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .patterns-card__list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--border-subtle, #ececef);
+      font: 500 11px/1.4 var(--font-mono, monospace);
+      color: var(--text-secondary);
+    }
+    .patterns-card__list li:first-child { border-top: 0; }
+    .patterns-card__sig {
+      flex: 1;
+      min-width: 0;
+      font: 500 11px/1.4 var(--font-mono, monospace);
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    .patterns-card__count-pill {
+      flex-shrink: 0;
+      font: 500 11px/1.4 var(--font-mono, monospace);
+      color: var(--text-secondary);
+      background: var(--bg-row-hover);
+      padding: 2px 8px;
+      border-radius: 9px;
+      min-width: 24px;
+      text-align: center;
+    }
+    .patterns-card__pick {
+      flex-shrink: 0;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid var(--primary);
+      background: transparent;
+      color: var(--primary);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .patterns-card__pick:hover {
+      background: rgba(19, 121, 243, 0.06);
+    }
+    .patterns-card__empty {
+      color: var(--text-secondary);
+      font-style: italic;
+      text-align: center;
+      padding: 12px 0;
+      font-size: 11px;
+      border-top: 0 !important;
+    }
+
     /* ==========================================================
        Mapping sections (Screen 03 — System states / Modals / Toasts).
        Each section: header with count, then a list of source→variant
@@ -2013,6 +2111,17 @@
                 <!-- Populated dynamically from manual-matches-list message -->
               </ul>
               <button class="btn btn--ghost btn--sm" id="addManualMatchBtn" type="button">+ Add match</button>
+            </section>
+
+            <section class="patterns-card">
+              <header class="patterns-card__head">
+                <h3 class="patterns-card__title">HTML patterns</h3>
+                <span class="patterns-card__count" id="patternsCount">0</span>
+              </header>
+              <p class="patterns-card__caption">Each unique HTML class signature in your file. Map once per pattern; build instantiates the matched DS component for every instance.</p>
+              <ul class="patterns-card__list" id="patternsList">
+                <!-- Populated dynamically from parse-result.data.patterns -->
+              </ul>
             </section>
 
             <div class="candidates-card">
@@ -3464,7 +3573,7 @@
         var screenMIdx = 11; // 12th .strip__cell (zero-indexed)
         var screenMSelectedComponent = null;
         var screenMCurrentCandidate = null;
-        var screenMReturnTarget = null; // 'candidate' (default) | 'manual-match' (set by Phase E)
+        var screenMReturnTarget = null; // 'candidate' (default) | 'manual-match' (Phase E) | 'pattern' (Phase H2)
         var screenMComponentsCache = [];
 
         function openScreenM(candidateName, returnTarget) {
@@ -3551,6 +3660,16 @@
               if (typeof window.onManualMatchDsPicked === "function") {
                 window.onManualMatchDsPicked(screenMSelectedComponent);
               }
+              goBack();
+            } else if (screenMReturnTarget === "pattern") {
+              // Phase H2 placeholder — log selection only. Persistence lands in
+              // H3 (replace this log with a `register-pattern-mapping` postMessage),
+              // build-time lookup lands in H4. Stub keeps the click handler safe.
+              console.log("Pattern mapping picked (not yet persisted in H2):", {
+                signature: screenMCurrentCandidate,
+                componentKey: screenMSelectedComponent.componentKey,
+                componentName: screenMSelectedComponent.componentName,
+              });
               goBack();
             } else {
               // Default: register a candidate mapping via code.js
@@ -4538,6 +4657,57 @@
           });
         }
 
+        // Phase H2 — populate Screen 03's HTML patterns section from
+        // parse-result.data.patterns. Each row exposes a "Pick DS component"
+        // button that opens Screen M in "pattern" returnTarget mode. H3/H4
+        // wire the persistence + build-time lookup; for H2 this is a stub.
+        function renderHtmlPatterns(patterns) {
+          var allCells = document.querySelectorAll(".strip__cell");
+          var s03 = allCells[2];
+          if (!s03) return;
+          var listEl = s03.querySelector("#patternsList");
+          var countEl = s03.querySelector("#patternsCount");
+          if (countEl) countEl.textContent = String((patterns || []).length);
+          if (!listEl) return;
+          listEl.innerHTML = "";
+          if (!patterns || patterns.length === 0) {
+            var empty = document.createElement("li");
+            empty.className = "patterns-card__empty";
+            empty.textContent = "No HTML class patterns detected.";
+            listEl.appendChild(empty);
+            return;
+          }
+          patterns.forEach(function (p) {
+            var li = document.createElement("li");
+            li.setAttribute("data-signature", p.signature);
+
+            var sig = document.createElement("span");
+            sig.className = "patterns-card__sig";
+            sig.textContent = p.signature;
+            li.appendChild(sig);
+
+            var countPill = document.createElement("span");
+            countPill.className = "patterns-card__count-pill";
+            countPill.textContent = String(p.count);
+            countPill.title = p.count + " instance" + (p.count === 1 ? "" : "s");
+            li.appendChild(countPill);
+
+            var pickBtn = document.createElement("button");
+            pickBtn.className = "patterns-card__pick";
+            pickBtn.type = "button";
+            pickBtn.textContent = "Pick DS component";
+            pickBtn.addEventListener("click", withNavLock(function () {
+              // Opens Screen M with the signature as the "candidate" — Screen M's
+              // existing returnTarget machinery handles registering the mapping.
+              // Task H3/H4 wire the persistence + build lookup.
+              openScreenM(p.signature, "pattern");
+            }));
+            li.appendChild(pickBtn);
+
+            listEl.appendChild(li);
+          });
+        }
+
         var addManualMatchBtn = document.getElementById("addManualMatchBtn");
         if (addManualMatchBtn) addManualMatchBtn.addEventListener("click", withNavLock(openScreenN));
 
@@ -4644,6 +4814,7 @@
               lastVariantLists = msg.variantLists || null;
               populateParseResults(msg.data || {});
               renderCandidates((msg.data && msg.data.candidates) || []);
+              renderHtmlPatterns((msg.data && msg.data.patterns) || []);
               // Populate Screen 03's mapping dropdowns with the auto-suggested
               // variants. User reviews + adjusts before clicking Build.
               if (msg.variantSuggestions && msg.variantLists) {
