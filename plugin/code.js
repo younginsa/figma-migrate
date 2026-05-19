@@ -301,6 +301,127 @@ function parseHtml(html) {
     candidates.push({ name: candName, htmlText: "" });
   }
 
+  // ============================================================
+  // Pattern signature extraction (Phase H)
+  // Scans HTML for every element with at least one class, computes a
+  // "pattern signature" = tag + sorted (stripped) class list, dedupes,
+  // counts instances. Phase H wires Screen 03 + mapping table + build
+  // pipeline on top of this output.
+  //
+  // Utility classes are stripped before signature computation so layout
+  // utilities (mr-*, text-*, flex, etc.) don't fragment signatures into
+  // hundreds of false-distinct buckets. Convention list covers Tailwind
+  // + Bootstrap. Future improvement: user-configurable allow list.
+  // ============================================================
+
+  var UTILITY_CLASS_PATTERNS = [
+    // Spacing
+    /^m[trblxy]?-/, /^p[trblxy]?-/, /^space-[xy]-/, /^gap-/,
+    // Sizing
+    /^w-/, /^h-/, /^max-w-/, /^min-w-/, /^max-h-/, /^min-h-/, /^size-/,
+    // Typography (utility variants — semantic ones like .text-error stay)
+    /^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|left|center|right|justify)$/,
+    /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black|sans|serif|mono)$/,
+    /^leading-/, /^tracking-/,
+    // Color utility variants (.bg-blue-500). Keep semantic colors (.bg-error).
+    /^bg-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+    /^text-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+    /^border-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+    // Flex/grid layout primitives
+    /^flex(-|$)/, /^grid(-|$)/, /^col(-|$)/, /^row(-|$)/, /^justify-/, /^items-/, /^content-/, /^self-/,
+    /^place-/, /^order-/,
+    // Borders/rounded
+    /^rounded(-|$)/, /^border(-|$)/, /^divide-/, /^ring-/,
+    // Bootstrap-style utilities
+    /^col-/, /^offset-/, /^d-/, /^m[trblxy]?-\d+$/, /^p[trblxy]?-\d+$/, /^mb-/, /^mt-/, /^ms-/, /^me-/, /^px-/, /^py-/,
+    // Display + position
+    /^block$/, /^inline$/, /^inline-block$/, /^hidden$/, /^absolute$/, /^relative$/, /^fixed$/, /^sticky$/, /^static$/,
+    /^top-/, /^bottom-/, /^left-/, /^right-/, /^inset-/, /^z-/,
+    // Hover/focus/responsive modifiers (Tailwind variants)
+    /^(hover|focus|active|disabled|sm|md|lg|xl|2xl|dark|first|last|even|odd):/,
+    // Common state utilities (.hidden, .active are kept because they're often semantic;
+    // these are the obvious noise patterns):
+    /^opacity-/, /^cursor-/, /^pointer-events-/, /^select-/, /^overflow(-|$)/, /^truncate$/,
+    /^transition(-|$)/, /^duration-/, /^ease-/, /^transform$/, /^translate-/, /^rotate-/, /^scale-/,
+    /^shadow(-|$)/, /^outline-/, /^appearance-/, /^resize(-|$)/,
+  ];
+
+  function isUtilityClass(cls) {
+    if (!cls) return false;
+    for (var i = 0; i < UTILITY_CLASS_PATTERNS.length; i++) {
+      if (UTILITY_CLASS_PATTERNS[i].test(cls)) return true;
+    }
+    return false;
+  }
+
+  // Build dynamic-expression markers via fromCharCode so this source file's
+  // brace count stays balanced. The smoke-parser test extracts parseHtml via
+  // naive brace counting; literal braces inside string/regex would otherwise
+  // throw off that count and pull extra code into the extracted body.
+  var OPEN_BRACE = String.fromCharCode(123);
+  var DOLLAR_BRACE = "$" + OPEN_BRACE;
+  var DOUBLE_BRACE = OPEN_BRACE + OPEN_BRACE;
+  function computeSignature(tag, rawClassAttr) {
+    if (!tag) return null;
+    var classes = (rawClassAttr || "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter(function (c) {
+        // Drop dynamic class expressions (e.g. $-brace-classes, double-brace
+        // mustaches, [bg-red] arbitrary Tailwind values).
+        if (c.indexOf(DOLLAR_BRACE) !== -1 || c.indexOf(DOUBLE_BRACE) !== -1) return false;
+        // Drop arbitrary-value Tailwind classes like [bg-red] or [w-100px].
+        if (c.charAt(0) === "[" && c.charAt(c.length - 1) === "]") return false;
+        return true;
+      })
+      .filter(function (c) { return !isUtilityClass(c); });
+    if (classes.length === 0) return null;
+    classes.sort();
+    return tag.toLowerCase() + "." + classes.join(".");
+  }
+
+  var patterns = {}; // signature → entry with signature, tag, classes, count, exampleText
+  // Match every opening tag with a class attribute. We don't try to capture
+  // the element's inner text via a backreference (that pattern only fires
+  // once for the outermost <html>...</html>); instead, after matching an
+  // open tag we slice forward to the next "<" to get a quick text snippet.
+  var openTagPattern = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g;
+  var elMatch;
+  // Skip script/style/meta and other non-semantic tags.
+  var SKIP_TAGS = { script: 1, style: 1, link: 1, meta: 1, head: 1, title: 1, br: 1, hr: 1, img: 1, "!doctype": 1 };
+  while ((elMatch = openTagPattern.exec(html)) !== null) {
+    var tag = elMatch[1].toLowerCase();
+    if (SKIP_TAGS[tag]) continue;
+    var attrs = elMatch[2] || "";
+    // Extract class attribute
+    var classAttrMatch = /class\s*=\s*["']([^"']+)["']/.exec(attrs);
+    if (!classAttrMatch) continue; // No class → no signature
+    var sig = computeSignature(tag, classAttrMatch[1]);
+    if (!sig) continue;
+    if (!patterns[sig]) {
+      // First occurrence — peek forward for a short text snippet (everything
+      // up to the next "<" or 80 chars, whichever is shorter).
+      var tagEnd = openTagPattern.lastIndex;
+      var nextLt = html.indexOf("<", tagEnd);
+      var snippetEnd = nextLt === -1 ? Math.min(tagEnd + 80, html.length) : Math.min(nextLt, tagEnd + 80);
+      var textSnippet = html.slice(tagEnd, snippetEnd).replace(/\s+/g, " ").trim();
+      var sigClasses = sig.split(".").slice(1);
+      patterns[sig] = {
+        signature: sig,
+        tag: tag,
+        classes: sigClasses,
+        count: 0,
+        exampleText: textSnippet,
+      };
+    }
+    patterns[sig].count++;
+  }
+
+  // Convert to array, sort by count descending so most-frequent patterns
+  // surface first in the UI.
+  var patternList = Object.keys(patterns).map(function (k) { return patterns[k]; });
+  patternList.sort(function (a, b) { return b.count - a.count; });
+
   return {
     states: states,
     modals: modals,
@@ -308,6 +429,7 @@ function parseHtml(html) {
     dsComponents: dsComponents,
     tabs: tabs,
     candidates: candidates,
+    patterns: patternList,
   };
 }
 

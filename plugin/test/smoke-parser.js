@@ -101,6 +101,50 @@ if (badTextCandidates.length > 0) {
   console.log('  PASS: all candidates have htmlText: "" (correct for v0.1)');
 }
 
+// Pattern signature extraction (Phase H)
+console.log('\nPattern signature check (Phase H1):');
+if (!Array.isArray(result.patterns)) {
+  console.log('  FAIL: patterns is not an array');
+  ok = false;
+} else {
+  console.log('  PASS: patterns is array (' + result.patterns.length + ' distinct signatures)');
+  ok = assertGte('patterns.length', result.patterns.length, 5) && ok;
+  console.log('  Top 5 patterns:');
+  result.patterns.slice(0, 5).forEach(function (p, i) {
+    console.log('    ' + (i + 1) + '. ' + p.signature + ' (count=' + p.count +
+      ', exampleText="' + (p.exampleText || '').slice(0, 40) + '")');
+  });
+  // Shape check on first entry
+  if (result.patterns.length > 0) {
+    var p0 = result.patterns[0];
+    var shapeOk = typeof p0.signature === 'string' &&
+      typeof p0.tag === 'string' &&
+      Array.isArray(p0.classes) &&
+      typeof p0.count === 'number' &&
+      typeof p0.exampleText === 'string';
+    if (shapeOk) {
+      console.log('  PASS: pattern entry shape {signature, tag, classes, count, exampleText}');
+    } else {
+      console.log('  FAIL: pattern entry missing expected fields');
+      ok = false;
+    }
+  }
+  // Sorted desc by count
+  var sortedOk = true;
+  for (var si = 1; si < result.patterns.length; si++) {
+    if (result.patterns[si].count > result.patterns[si - 1].count) {
+      sortedOk = false;
+      break;
+    }
+  }
+  if (sortedOk) {
+    console.log('  PASS: patterns sorted by count descending');
+  } else {
+    console.log('  FAIL: patterns not sorted by count descending');
+    ok = false;
+  }
+}
+
 console.log('\n--- Summary ---');
 console.log('states:', result.states.length);
 console.log('modals:', result.modals.length);
@@ -108,6 +152,7 @@ console.log('toasts:', result.toasts.length);
 console.log('candidates:', result.candidates.length);
 console.log('dsComponents:', result.dsComponents.length);
 console.log('tabs:', result.tabs.length);
+console.log('patterns:', result.patterns.length);
 
 if (ok) {
   console.log('\nALL CHECKS PASSED');
