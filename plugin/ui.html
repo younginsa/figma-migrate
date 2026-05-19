@@ -327,6 +327,10 @@
       color: var(--text-muted);
       transform: rotate(0deg);
       transition: transform 120ms ease;
+      /* Issue 4C — give the right caret a bit of breathing room from the
+         card edge. Previously it sat tight against .card__head's 12px
+         padding which read as too cramped. */
+      margin-right: 4px;
     }
     .card--open .card__chev { transform: rotate(180deg); }
     .card .card__body { display: none; }
@@ -346,15 +350,36 @@
     }
     .card__list-item {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      /* Issue 5 — flex-start so multi-line names don't shove meta off
+         the baseline. Centered alignment only looks right when both
+         columns are exactly one line. */
+      align-items: flex-start;
+      gap: 12px;
       padding: 6px 0;
       border-bottom: 1px solid var(--border-subtle);
       font-size: 12px;
     }
     .card__list-item:last-child { border-bottom: 0; }
-    .card__list-item-name { color: var(--text-primary); flex: 1; }
-    .card__list-item-meta { font: 500 11px/1.4 var(--font-mono); color: var(--text-muted); }
+    /* Issue 5 — name takes remaining space and wraps cleanly; min-width:0
+       lets flex shrink past the intrinsic content width when needed.
+       word-break: break-word handles long unbroken tokens (e.g. very long
+       function names or modal titles). */
+    .card__list-item-name {
+      color: var(--text-primary);
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+    }
+    /* Issue 5 — meta sits to the right, can wrap onto its own lines but
+     never dominates the row. */
+    .card__list-item-meta {
+      font: 500 11px/1.4 var(--font-mono);
+      color: var(--text-muted);
+      flex-shrink: 0;
+      max-width: 40%;
+      word-break: break-word;
+      text-align: right;
+    }
     .pill {
       display: inline-grid;
       place-items: center;
@@ -773,12 +798,18 @@
       border: none;
       cursor: pointer;
       color: var(--text-secondary);
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1;
-      padding: 0 6px;
+      /* Issue 3 — perfect 16px circle, not a rounded rectangle. */
+      width: 16px;
+      height: 16px;
+      padding: 0;
       font-family: inherit;
-      border-radius: 3px;
-      margin-left: 2px;
+      border-radius: 50%;
+      margin-left: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .candidates-card__mapping-chip__close:hover {
       background: rgba(0, 0, 0, 0.15);
@@ -839,19 +870,26 @@
       font: 600 10px/1 var(--font);
     }
     .manual-matches-card__list { list-style: none; padding: 0; margin: 0 0 8px 0; }
+    /* Issue 4A — match .mapping-row's `padding: 6px 0` byte-for-byte so
+       Manual matches list items align flush-left with Toasts/Modals rows
+       in the same screen. Use border-top (not bottom) + skip the top edge
+       to mirror .mapping-row's separator behavior exactly. */
     .manual-matches-card__list li {
       display: flex; align-items: center; gap: 8px;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border-default);
+      padding: 6px 0;
+      border-top: 1px solid var(--border-subtle, #ececef);
       font-size: 12px;
       color: var(--text-primary);
     }
-    .manual-matches-card__list li:last-child { border-bottom: none; }
+    .manual-matches-card__list li:first-child { border-top: 0; }
     .manual-matches-card__list .remove-btn {
       background: none; border: none; cursor: pointer;
       color: var(--text-secondary); font-size: 14px;
-      padding: 2px 6px; margin-left: auto;
+      /* Issue 4B — collapse padding so the × aligns flush-right with
+         the chevrons in Toasts/Modals lists (which sit at the card edge). */
+      padding: 0; margin-left: auto;
       font-family: inherit;
+      line-height: 1;
     }
     .manual-matches-card__list .remove-btn:hover { color: var(--text-primary); }
     /* + Add match button — looks like the Pick DS component button but in
@@ -1146,6 +1184,55 @@
       border-radius: var(--radius-sm);
     }
     .done__list-num { font: 500 11px/1.4 var(--font-mono); color: var(--text-primary); }
+
+    /* Expandable warnings on Done screen (Issue 1) — replaces the old
+       `<li class="done__warnings">` with a <details> so users can read the
+       full warning log inline instead of digging through the build log. */
+    .done__list details.done__warnings {
+      list-style: none;
+      display: block;
+      padding: 6px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+    .done__list details.done__warnings[hidden] { display: none; }
+    .done__warnings summary {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      list-style: none;
+    }
+    .done__warnings summary::-webkit-details-marker { display: none; }
+    .done__warnings summary::before {
+      content: "▸";
+      font-size: 9px;
+      color: var(--text-secondary);
+      transition: transform 0.15s;
+      display: inline-block;
+    }
+    .done__warnings[open] summary::before { transform: rotate(90deg); }
+    .done__warnings__hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: normal;
+      margin-left: auto;
+    }
+    .done__warnings[open] .done__warnings__hint { display: none; }
+    .done__warnings__body {
+      font: 11px/1.5 var(--font-mono);
+      background: rgba(0, 0, 0, 0.04);
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin: 8px 0 0 0;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text-primary);
+    }
 
     /* Buttons */
     .btn {
@@ -1993,7 +2080,10 @@
               <li><span>Toast screens</span><span class="done__list-num">4</span></li>
               <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
               <li><span>Matched elements</span><span class="done__list-num">0</span></li>
-              <li class="done__warnings" hidden><span class="done__list-num">0</span> Warnings (check build log)</li>
+              <details class="done__warnings" hidden>
+                <summary><span class="done__list-num">0</span> Warnings <span class="done__warnings__hint">(click to expand)</span></summary>
+                <pre class="done__warnings__body" id="doneWarningsBody"></pre>
+              </details>
             </ul>
 
             <button class="btn btn--primary btn--lg btn--block">Show on canvas</button>
@@ -3118,6 +3208,21 @@
           }
         }
 
+        // Issue 6 — debounce rapid double-clicks on navigation buttons.
+        // A user holding their mouse a fraction too long on a back arrow or
+        // primary CTA could otherwise skip two screens. 300ms is enough to
+        // catch the double-tap without feeling unresponsive on a normal click.
+        var _navLockTimer = null;
+        function withNavLock(fn) {
+          return function () {
+            if (_navLockTimer) return;
+            _navLockTimer = setTimeout(function () {
+              _navLockTimer = null;
+            }, 300);
+            return fn.apply(this, arguments);
+          };
+        }
+
         // Hard reset back to Screen 01 (Paste HTML). Used by "Run again
         // with new HTML" on Done — popping the back stack would land on
         // Screen 04 (Build progress) with stale data, which is wrong.
@@ -3138,7 +3243,7 @@
         // Wire all back buttons across all screens
         var backButtons = document.querySelectorAll(".panel__back");
         for (var b = 0; b < backButtons.length; b++) {
-          backButtons[b].addEventListener("click", goBack);
+          backButtons[b].addEventListener("click", withNavLock(goBack));
         }
 
         // ---- Card head click → toggle open/closed ----
@@ -3187,29 +3292,29 @@
           var rows = allCells[2].querySelectorAll(".coverage__row:not(.coverage__row--expanded)");
           for (var r = 0; r < rows.length; r++) {
             (function (row) {
-              row.addEventListener("click", function () {
+              row.addEventListener("click", withNavLock(function () {
                 // Skip Auto rows — they have no expandable options
                 if (row.querySelector(".pill--auto")) return;
                 navigateTo(6); // Screen 07 = "Row expanded · edit mapping"
-              });
+              }));
             })(rows[r]);
           }
         })();
 
         // ---- Apply / Cancel in row detail (Screens 07, 11) → goBack ----
         document.querySelectorAll(".coverage__detail-actions .btn").forEach(function (btn) {
-          btn.addEventListener("click", function (e) {
+          btn.addEventListener("click", withNavLock(function (e) {
             e.stopPropagation();
             goBack();
-          });
+          }));
         });
 
         // ---- Toggle chevron (collapse expanded row) → goBack ----
         document.querySelectorAll(".coverage__toggle").forEach(function (toggle) {
-          toggle.addEventListener("click", function (e) {
+          toggle.addEventListener("click", withNavLock(function (e) {
             e.stopPropagation();
             goBack();
-          });
+          }));
         });
 
         // Wire screen-specific footer CTAs
@@ -3221,10 +3326,10 @@
             var footer = allCells[1].querySelector(".panel__footer");
             if (footer) {
               var secondary = footer.querySelector(".btn--secondary, .btn--ghost");
-              if (secondary) secondary.addEventListener("click", goBack);
+              if (secondary) secondary.addEventListener("click", withNavLock(goBack));
               var primary = footer.querySelector(".btn--primary");
               if (primary) {
-                primary.addEventListener("click", function () {
+                primary.addEventListener("click", withNavLock(function () {
                   navigateTo(2);
                   // Mirror the DS sync banner on Screen 03 if sync failed —
                   // the Build button is also disabled by the gate handler.
@@ -3234,7 +3339,7 @@
                       "DS sync hasn't succeeded yet. Build is blocked. Add a 'Design system' page to this file.",
                       [{ label: "Dismiss", onClick: function () { clearInlineErrors(s03); } }]);
                   }
-                });
+                }));
               }
             }
           }
@@ -3246,7 +3351,7 @@
             if (footer) {
               var primary = footer.querySelector(".btn--primary");
               if (primary) {
-                primary.addEventListener("click", function () {
+                primary.addEventListener("click", withNavLock(function () {
                   resetBuildProgressUI();
                   navigateTo(3);
                   buildStartedAt = Date.now();
@@ -3266,7 +3371,7 @@
                     variantChoices: variantChoices,
                   };
                   parent.postMessage({ pluginMessage: lastBuildPayload }, "*");
-                });
+                }));
               }
             }
           }
@@ -3306,7 +3411,7 @@
                   );
                 });
               } else if (btn.classList.contains("btn--ghost")) {
-                btn.addEventListener("click", resetToStart);
+                btn.addEventListener("click", withNavLock(resetToStart));
               }
             }
           }
@@ -3393,11 +3498,11 @@
         }
 
         var screenMCancel = document.getElementById("screenMCancel");
-        if (screenMCancel) screenMCancel.addEventListener("click", goBack);
+        if (screenMCancel) screenMCancel.addEventListener("click", withNavLock(goBack));
 
         var screenMMatch = document.getElementById("screenMMatch");
         if (screenMMatch) {
-          screenMMatch.addEventListener("click", function () {
+          screenMMatch.addEventListener("click", withNavLock(function () {
             if (!screenMSelectedComponent) return;
             if (screenMReturnTarget === "manual-match") {
               // Phase E flow — update Screen N's DS field via the global callback.
@@ -3420,7 +3525,7 @@
               );
               // mapping-set handler (added in Task D2) will navigate back
             }
-          });
+          }));
         }
 
         // ---- Screen N (Manual rescue match) ----
@@ -3488,9 +3593,9 @@
         }
 
         var screenNCancelEl = document.getElementById("screenNCancel");
-        if (screenNCancelEl) screenNCancelEl.addEventListener("click", closeScreenN);
+        if (screenNCancelEl) screenNCancelEl.addEventListener("click", withNavLock(closeScreenN));
         var screenNBackEl = document.getElementById("screenNBack");
-        if (screenNBackEl) screenNBackEl.addEventListener("click", closeScreenN);
+        if (screenNBackEl) screenNBackEl.addEventListener("click", withNavLock(closeScreenN));
 
         // Wire iframe element click → updates manualHtmlSelection
         var manualIframe = document.getElementById("manualMatchIframe");
@@ -4116,11 +4221,16 @@
           if (counts.warnings && counts.warnings > 0) {
             console.warn("Build completed with " + counts.warnings + " warnings");
           }
-          var warningsLi = screen05.querySelector(".done__warnings");
-          if (warningsLi) {
+          // Now a <details> element (Issue 1) — toggle visibility via the
+          // hidden attribute and bump the count span inside <summary>.
+          var warningsDetails = screen05.querySelector(".done__warnings");
+          if (warningsDetails) {
             var w = counts.warnings || 0;
-            warningsLi.hidden = w === 0;
-            var wNum = warningsLi.querySelector(".done__list-num");
+            warningsDetails.hidden = w === 0;
+            // Always start collapsed when entering the Done screen so users
+            // see the summary line first, not a wall of text.
+            warningsDetails.open = false;
+            var wNum = warningsDetails.querySelector(".done__list-num");
             if (wNum) wNum.textContent = String(w);
           }
 
@@ -4157,10 +4267,10 @@
             },
             {
               label: "Back to coverage",
-              onClick: function () {
+              onClick: withNavLock(function () {
                 clearInlineErrors(screen04);
                 goBack();
-              },
+              }),
             },
           ]);
         }
@@ -4387,7 +4497,7 @@
         }
 
         var addManualMatchBtn = document.getElementById("addManualMatchBtn");
-        if (addManualMatchBtn) addManualMatchBtn.addEventListener("click", openScreenN);
+        if (addManualMatchBtn) addManualMatchBtn.addEventListener("click", withNavLock(openScreenN));
 
         // Walk Screen 03's mapping rows and collect the user's choices,
         // grouped by kind. Each entry is { sourceKey: variantValue }.
@@ -4563,6 +4673,15 @@
             var pageName = "Claude output";
             if (targetPageLabel && targetPageLabel.textContent) {
               pageName = targetPageLabel.textContent.trim() || pageName;
+            }
+            // Stash warnings list for the Done screen expandable (Issue 1).
+            // Populated before showDoneScreen so the <pre> is ready when
+            // the user expands the <details>.
+            if (msg.warnings && Array.isArray(msg.warnings)) {
+              var warningsBodyEl = document.getElementById("doneWarningsBody");
+              if (warningsBodyEl) {
+                warningsBodyEl.textContent = msg.warnings.join("\n");
+              }
             }
             showDoneScreen(msg.counts || {}, pageName);
             if (msg.warnings && msg.warnings.length) {
