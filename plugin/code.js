@@ -1556,6 +1556,8 @@ async function buildArtboards(payload) {
       matchArtboard.name = "Match — " + match.componentName;
       matchArtboard.fills = [];
       matchArtboard.clipsContent = true;
+      // Start at standard size; we'll resize after the instance is in place
+      // so we know the component's natural dimensions (Issue 3).
       matchArtboard.resize(ARTBOARD_W, ARTBOARD_H);
       targetPage.appendChild(matchArtboard);
       matchArtboard.x = BAND_X + (mi % GRID_COLS) * GRID_STRIDE_X;
@@ -1604,9 +1606,17 @@ async function buildArtboards(payload) {
         // Ensure ABSOLUTE positioning so the centering math below isn't a no-op
         // when the artboard inherits auto-layout from anywhere upstream.
         try { matchInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
-        // Center the instance in the artboard
-        matchInst.x = Math.round((ARTBOARD_W - matchInst.width) / 2);
-        matchInst.y = Math.round((ARTBOARD_H - matchInst.height) / 2);
+        // Size artboard to component's natural dimensions + padding,
+        // so small components (inputs, buttons) don't look "empty" in a
+        // huge artboard. (Issue 3)
+        var pad = 80;
+        var minDim = 160; // minimum so very small components stay readable
+        var aW = Math.max(minDim, matchInst.width + pad * 2);
+        var aH = Math.max(minDim, matchInst.height + pad * 2);
+        matchArtboard.resize(aW, aH);
+        // Center the instance within the resized artboard
+        matchInst.x = Math.round((aW - matchInst.width) / 2);
+        matchInst.y = Math.round((aH - matchInst.height) / 2);
         // Apply text override from htmlText if available
         if (match.htmlText) {
           var textNodes = matchInst.findAll(function (n) { return n.type === "TEXT"; });

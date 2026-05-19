@@ -744,12 +744,12 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 8px;
+      padding: 4px 4px 4px 8px;
       font-size: 11px;
-      border: 1px solid var(--primary);
-      background: transparent;
+      background: rgba(19, 121, 243, 0.1); /* light blue tint */
       color: var(--primary);
-      border-radius: 3px;
+      border: none;
+      border-radius: 4px;
       font-family: var(--font-mono);
     }
     /* Hidden state must beat the inline-flex above (Issue 7). Without
@@ -769,21 +769,22 @@
     }
     .candidates-card__mapping-chip__label:hover { text-decoration: underline; }
     .candidates-card__mapping-chip__close {
-      background: none;
+      background: rgba(0, 0, 0, 0.08); /* gray BG behind × */
       border: none;
       cursor: pointer;
-      color: var(--primary);
+      color: var(--text-secondary);
       font-size: 14px;
       line-height: 1;
-      padding: 0 2px;
+      padding: 0 6px;
       font-family: inherit;
-      border-radius: 2px;
+      border-radius: 3px;
+      margin-left: 2px;
     }
     .candidates-card__mapping-chip__close:hover {
-      background: rgba(19, 121, 243, 0.15);
+      background: rgba(0, 0, 0, 0.15);
+      color: var(--text-primary);
     }
     .candidates-card__ds-btn {
-      margin-left: 6px;
       padding: 4px 8px;
       font-size: 11px;
       border: 1px solid var(--primary);
@@ -794,32 +795,48 @@
       font-family: inherit;
     }
     .candidates-card__ds-btn:hover { background: rgba(19, 121, 243, 0.06); }
+    /* Ensure consistent left-alignment in the candidate row's column layout
+       (Issue 4) — chip and Pick DS button must share the same left edge. */
+    .candidates-card__list li > .candidates-card__mapping-chip,
+    .candidates-card__list li > .candidates-card__ds-btn {
+      margin-left: 0;
+      margin-right: 0;
+    }
 
     /* ---- Manual matches section (Screen 03) ----
-       Matches the other Screen 03 cards (System states / Modals / Toasts /
-       DS components used) — no white BG, no special border. Pure structural
-       section so the panel reads as one consistent surface. */
+       Mirrors .mapping-section (System states / Modals / Toasts) so the
+       title aligns byte-for-byte with the other Screen 03 section titles. */
     .manual-matches-card {
-      margin-bottom: 0; /* let panel body gap handle spacing */
-      padding: 0;
-      background: transparent;
-      border: none;
+      margin-top: 0;
+      padding: 12px;
+      background: var(--bg-secondary, #fafafa);
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: var(--radius-md, 6px);
     }
     .manual-matches-card__head {
-      display: flex; align-items: center; gap: 8px;
-      font: 600 13px var(--font-base, inherit);
-      margin-bottom: 8px;
+      margin: 0 0 8px;
+      font: 600 12px/1.4 var(--font);
       color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .manual-matches-card__head h3 {
-      margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary);
+      margin: 0;
+      font: 600 12px/1.4 var(--font);
+      color: var(--text-primary);
     }
     .manual-matches-card__count {
-      font: 11px var(--font-mono);
-      color: var(--text-secondary);
-      padding: 2px 6px;
-      background: var(--bg-row-hover);
-      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      background: var(--text-primary);
+      color: #fff;
+      border-radius: 9px;
+      font: 600 10px/1 var(--font);
     }
     .manual-matches-card__list { list-style: none; padding: 0; margin: 0 0 8px 0; }
     .manual-matches-card__list li {
@@ -837,6 +854,22 @@
       font-family: inherit;
     }
     .manual-matches-card__list .remove-btn:hover { color: var(--text-primary); }
+    /* + Add match button — looks like the Pick DS component button but in
+       a "selected/secondary" state (light gray fill, no border). Issue 4.2C. */
+    #addManualMatchBtn {
+      padding: 6px 12px;
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.06);
+      color: var(--text-primary);
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 8px;
+    }
+    #addManualMatchBtn:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
     .btn--sm {
       padding: 4px 8px;
       font-size: 11px;
@@ -1960,6 +1993,7 @@
               <li><span>Toast screens</span><span class="done__list-num">4</span></li>
               <li><span>DS Candidate artboards</span><span class="done__list-num">9</span></li>
               <li><span>Matched elements</span><span class="done__list-num">0</span></li>
+              <li class="done__warnings" hidden><span class="done__list-num">0</span> Warnings (check build log)</li>
             </ul>
 
             <button class="btn btn--primary btn--lg btn--block">Show on canvas</button>
@@ -4065,7 +4099,7 @@
             meta.textContent = secs + " s";
           }
 
-          var listItems = screen05.querySelectorAll(".done__list li");
+          var listItems = screen05.querySelectorAll(".done__list li:not(.done__warnings)");
           var countMap = [
             counts.states || 0,
             counts.modals || 0,
@@ -4081,6 +4115,13 @@
           // Show a warnings hint if any
           if (counts.warnings && counts.warnings > 0) {
             console.warn("Build completed with " + counts.warnings + " warnings");
+          }
+          var warningsLi = screen05.querySelector(".done__warnings");
+          if (warningsLi) {
+            var w = counts.warnings || 0;
+            warningsLi.hidden = w === 0;
+            var wNum = warningsLi.querySelector(".done__list-num");
+            if (wNum) wNum.textContent = String(w);
           }
 
           navigateTo(4);
@@ -4376,12 +4417,14 @@
                 return { name: s, meta: "" };
               }) },
             { card: cards[1], items: (data.modals || []).map(function (m) {
-                // m is now an object { name, title, body } from parseHtml.
-                // Use parsed title as meta when available so Screen 02's
-                // modal card shows "openSelectConfirmModal()" + "Confirm select".
-                var label = (m && m.name) ? m.name : String(m || "");
-                var titleMeta = (m && m.title) ? m.title : "";
-                return { name: label, meta: titleMeta };
+                // Render parsed title as the prominent text and function
+                // name as light-gray meta (Issue 7) — the title is what the
+                // user cares about; the function name is an implementation
+                // detail and reads better as supporting context.
+                if (m && typeof m === "object" && m.title) {
+                  return { name: m.title, meta: m.name };
+                }
+                return { name: (m && m.name) ? m.name : String(m || ""), meta: "" };
               }) },
             { card: cards[2], items: (data.toasts || []).map(function (t) {
                 return {
