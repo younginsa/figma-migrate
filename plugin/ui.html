@@ -335,7 +335,7 @@
       margin-right: 12px;
       flex-shrink: 0;
     }
-    .card--open .card__chev { transform: rotate(180deg); }
+    .card--open .card__chev { transform: rotate(90deg); }
     .card .card__body { display: none; }
     .card--open .card__body { display: block; }
     .card__body {
@@ -800,17 +800,17 @@
     }
     .candidates-card__mapping-chip__label:hover { text-decoration: underline; }
     .candidates-card__mapping-chip__close {
-      /* Phase E v6 — drop the persistent gray BG. The × stands alone; only
-         hover reveals a subtle BG so the affordance still surfaces on touch. */
+      /* Phase E v7 — bigger glyph (16px), larger 20px tap target, and a
+         lighter gray default so the × recedes until hovered. Hover keeps
+         the subtle BG affordance and darkens the glyph for contrast. */
       background: transparent;
       border: none;
       cursor: pointer;
-      color: var(--text-secondary);
-      font-size: 12px;
+      color: rgba(0, 0, 0, 0.35);
+      font-size: 16px;
       line-height: 1;
-      /* Issue 3 — perfect 16px circle (only visible on hover now). */
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       padding: 0;
       font-family: inherit;
       border-radius: 50%;
@@ -822,7 +822,7 @@
     }
     .candidates-card__mapping-chip__close:hover {
       background: rgba(0, 0, 0, 0.08);
-      color: var(--text-primary);
+      color: rgba(0, 0, 0, 0.7);
     }
     .candidates-card__ds-btn {
       padding: 4px 8px;
@@ -1003,13 +1003,25 @@
     .mapping-row__select {
       flex: 0 0 auto;
       max-width: 200px;
-      padding: 3px 6px;
+      /* Phase E v7 (Issue 4) — strip the native chevron and draw our own,
+         offset 12px from the right edge so the focus outline reads with
+         real breathing room. padding-right reserves ~28px so the longest
+         option text never tucks under the chevron. */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding: 3px 28px 3px 6px;
       font: 500 11px/1.4 var(--font);
       color: var(--text-primary);
-      background: #fff;
+      background-color: #fff;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8E99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 12px 12px;
       border: 1px solid var(--border);
       border-radius: 3px;
     }
+    .mapping-row__select::-ms-expand { display: none; }
     .mapping-row__select:focus { outline: 1px solid var(--primary); }
 
     /* ==========================================================
@@ -1243,7 +1255,7 @@
       flex-shrink: 0;
     }
     .done__warnings[open] .done__warnings__chev {
-      transform: rotate(180deg);
+      transform: rotate(90deg);
     }
     .done__warnings__body {
       font: 11px/1.5 var(--font-mono);
@@ -1482,7 +1494,7 @@
     }
     .choice--selected > .choice__chev {
       color: var(--primary);
-      transform: rotate(180deg);
+      transform: rotate(90deg);
     }
     .choice__title {
       font-size: 12px;
@@ -1863,7 +1875,7 @@
               <div class="card__head">
                 <span class="card__count">9</span>
                 <span class="card__title">States</span>
-                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
               </div>
               <div class="card__body">
                 <ul class="card__list">
@@ -1884,7 +1896,7 @@
               <div class="card__head">
                 <span class="card__count">4</span>
                 <span class="card__title">Modals</span>
-                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
               </div>
               <div class="card__body">
                 <ul class="card__list">
@@ -1900,7 +1912,7 @@
               <div class="card__head">
                 <span class="card__count">4</span>
                 <span class="card__title">Toasts</span>
-                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
               </div>
               <div class="card__body">
                 <ul class="card__list">
@@ -1922,7 +1934,7 @@
               <div class="card__head">
                 <span class="card__count">7</span>
                 <span class="card__title">DS components used</span>
-                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="card__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
               </div>
               <div class="card__body">
                 <p class="card__subtitle">Detected from HTML class names. Listed for reference — the build instantiates Setting dialog / Modal / Toast / System states automatically, but other components must be filled in manually after build.</p>
@@ -2109,7 +2121,7 @@
                 <summary>
                   <span class="done__list-num">0</span>
                   <span class="done__warnings__label">Warnings</span>
-                  <svg class="done__warnings__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg class="done__warnings__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                 </summary>
                 <pre class="done__warnings__body" id="doneWarningsBody"></pre>
               </details>
@@ -2300,7 +2312,7 @@
                         </div>
                       </div>
                       <span class="choice__chev">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                       </span>
                     </div>
                     <div class="choice">
@@ -2339,7 +2351,7 @@
                         </div>
                       </div>
                       <span class="choice__chev">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                       </span>
                     </div>
                     <div class="choice">
@@ -2664,7 +2676,7 @@
                         <p class="choice__detail">Default. Reshape this pattern to fit what the DS already supports. Build matches the DS; some HTML structure may change.</p>
                       </div>
                       <span class="choice__chev">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                       </span>
                     </div>
                     <div class="choice choice--selected">
@@ -2703,7 +2715,7 @@
                         </div>
                       </div>
                       <span class="choice__chev">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
                       </span>
                     </div>
                     <div class="choice">
