@@ -168,14 +168,51 @@ function parseHtml(html) {
     }
   }
 
+  // Walk modal functions for title/body text.
+  // Best-effort regex extraction; v0.1 covers the common patterns we see
+  // in HiNAS mockups. v0.2 would replace with a proper AST parser.
+  // Each entry is now an object { name, title, body } (was: bare string).
+  // Downstream consumers must read `.name` for the function-call label.
   var modals = [];
   var seenModals = {};
-  var modalPattern = /function\s+(open[A-Z]\w*(?:Modal|Confirm)\w*)\s*\(/g;
-  while ((match = modalPattern.exec(html)) !== null) {
-    if (!seenModals[match[1]]) {
-      seenModals[match[1]] = true;
-      modals.push(match[1] + "()");
+  // Match function signature with any args (HiNAS has both empty signatures
+  // and destructured/named args like `(profileId)` or `({ onSave, ... })`).
+  // Capture body as everything from the first `{` up to a closing `\n  }` —
+  // 2-space indent matches the HiNAS mockup convention.
+  var modalFuncPattern = /function\s+(open[A-Z]\w*(?:Modal|Confirm)\w*)\s*\([^)]*\)\s*\{([\s\S]*?)\n\s*\}/g;
+  while ((match = modalFuncPattern.exec(html)) !== null) {
+    var fnName = match[1];
+    var fnBody = match[2];
+    if (seenModals[fnName]) continue;
+    seenModals[fnName] = true;
+    // Try to extract title + body
+    var title = "";
+    var body = "";
+    // Pattern A: openModal('Title', 'Body', ...) or openConfirm('Title', 'Body')
+    var openCall = /\bopen(?:Modal|Confirm)\w*\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]+)['"`]/.exec(fnBody);
+    if (openCall) {
+      title = openCall[1];
+      body = openCall[2];
+    } else {
+      // Pattern B: <h1|h2|h3>Title</h*> + <p>Body</p> inside template literal
+      var h = /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/.exec(fnBody);
+      if (h) title = h[1].trim();
+      var p = /<p[^>]*>([^<]+)<\/p>/.exec(fnBody);
+      if (p) body = p[1].trim();
+      // Pattern B2: <div class="modal__body">Body</div> (HiNAS convention)
+      if (!body) {
+        var bodyDiv = /<div[^>]*class\s*=\s*["'][^"']*\bmodal__body\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/.exec(fnBody);
+        if (bodyDiv) {
+          // Strip nested HTML tags; collapse whitespace.
+          body = String(bodyDiv[1] || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        }
+      }
     }
+    modals.push({
+      name: fnName + "()",
+      title: title,
+      body: body,
+    });
   }
 
   var toasts = [];
@@ -384,8 +421,18 @@ function computeBandOrigin(page) {
 // Returns the System states variant name, or null for content states.
 function systemStateVariant(stateName) {
   if (!stateName) return null;
-  var key = String(stateName).toLowerCase().replace(/[\s\-_]/g, "");
-  return SYSTEM_STATE_MAP[key] || null;
+  var key = String(stateName).toLowerCase().replace(/[^a-z]/g, "");
+  // 1) Exact-key match (existing behavior)
+  if (SYSTEM_STATE_MAP[key]) return SYSTEM_STATE_MAP[key];
+  // 2) Fuzzy fallback — any state containing "error" / "loading" / "empty"
+  //    in its name maps to that System states variant. Catches names like
+  //    'select-error', 'edit-save-error', 'page-loading' that don't exactly
+  //    match the canonical map keys.
+  var lower = String(stateName).toLowerCase();
+  if (lower.indexOf("error") !== -1) return "type=Error state";
+  if (lower.indexOf("loading") !== -1) return "type=Loading state";
+  if (lower.indexOf("empty") !== -1) return "type=Empty state";
+  return null;
 }
 
 // Pick a parent state for a modal based on its function name.
@@ -457,11 +504,15 @@ function computeVariantSuggestions(parsed) {
   }
 
   // Modal rows: one per parsed modal function call.
+  // modals[m] is now an object { name, title, body } from parseHtml.
   var modalRows = [];
   for (var m = 0; m < modals.length; m++) {
-    var modalName = String(modals[m]).replace(/[()]/g, "");
+    var modalObj = modals[m] || {};
+    var modalName = String(modalObj.name || "").replace(/[()]/g, "");
     modalRows.push({
       name: modalName,
+      title: modalObj.title || "",
+      body: modalObj.body || "",
       suggested: modalVariantForName(modalName),
     });
   }
@@ -960,10 +1011,14 @@ async function buildArtboards(payload) {
     });
   }
   for (var m = 0; m < modals.length; m++) {
-    var modalLabel = String(modals[m]).replace(/[()]/g, "");
+    // modals[m] is now an object { name, title, body }.
+    var modalObj = modals[m] || {};
+    var modalLabel = String(modalObj.name || "").replace(/[()]/g, "");
     plan.push({
       kind: "modal",
       modalName: modalLabel,
+      modalTitle: modalObj.title || "",
+      modalBody: modalObj.body || "",
       stateName: parentStateForModal(modalLabel, states) || "Edit",
       name: "Setting - " + section + " - Modal " + modalLabel,
     });
@@ -1130,6 +1185,10 @@ async function buildArtboards(payload) {
       } else {
         // Branch B: content states + modal/toast carriers — build with
         // Setting dialog as the screen chrome.
+        // Surface a debug warning so the user can see WHY a state was
+        // treated as content (no system-state overlay). Helps debug
+        // mismatches against SYSTEM_STATE_MAP / fuzzy fallback.
+        warnings.push(spec.name + ": treated as content state (no system-state variant matched for '" + spec.stateName + "')");
         var built = await buildArtboardWithDialog(spec.name);
         artboard = built.artboard;
         dialog = built.dialog;
@@ -1195,28 +1254,51 @@ async function buildArtboards(payload) {
             warnings.push(spec.name + ": Modal overlay — " + modalRes.reason);
             counts.warnings++;
           } else if (modalRes.instance) {
-            // TODO(Phase F+): parseHtml does not yet capture modal title/body
-            // text from the HTML — it only sees the function name
-            // (openSelectConfirmModal). Until that gap is closed, override
-            // the modal's first "Place holding text" / "Title" node with
-            // a cleaned-up version of the modal's function name so the
-            // artboard reads like "Select Confirm" instead of placeholder.
-            warnings.push(
-              "modal " + spec.name +
-              ": HTML-based text override not yet implemented (parser doesn't capture modal title); using humanized function name as fallback"
-            );
-            counts.warnings++;
+            // Title: prefer parsed title from HTML (Issue 3 — parser now
+            // captures title/body from openModal('Title','Body',...) calls
+            // or <h*>+<p> template literals). Falls back to humanized
+            // function name when the parser couldn't extract a title.
             try {
-              var humanTitle = humanizeModalName(spec.modalName || spec.name);
-              var placeholderCandidates = ["Place holding text", "Title", "Heading"];
-              for (var pj = 0; pj < placeholderCandidates.length; pj++) {
-                var phNode = findTextByChars(modalRes.instance, placeholderCandidates[pj]);
-                if (phNode) {
+              var humanTitle = spec.modalTitle || humanizeModalName(spec.modalName || spec.name);
+              var titlePlaceholders = ["Place holding text", "Title", "Heading"];
+              var titleNode = null;
+              for (var pj = 0; pj < titlePlaceholders.length; pj++) {
+                titleNode = findTextByChars(modalRes.instance, titlePlaceholders[pj]);
+                if (titleNode) break;
+              }
+              if (titleNode) {
+                try {
+                  await figma.loadFontAsync(titleNode.fontName);
+                  titleNode.characters = humanTitle;
+                } catch (eTxt) {}
+              }
+
+              // Body override (Issue 3): if the parser captured body text,
+              // find a SECOND placeholder text node (after the title) and
+              // override it. The Modal master typically has 2 such nodes —
+              // title + body. We collect all placeholders, skip the title
+              // node we just wrote, and write the body into the next one.
+              if (spec.modalBody) {
+                var allPlaceholders = [];
+                for (var pk = 0; pk < titlePlaceholders.length; pk++) {
+                  var hits = findAllTextByChars(modalRes.instance, titlePlaceholders[pk]);
+                  for (var hj = 0; hj < hits.length; hj++) allPlaceholders.push(hits[hj]);
+                }
+                var bodyNode = null;
+                for (var bp = 0; bp < allPlaceholders.length; bp++) {
+                  if (allPlaceholders[bp] !== titleNode) {
+                    bodyNode = allPlaceholders[bp];
+                    break;
+                  }
+                }
+                if (bodyNode) {
                   try {
-                    await figma.loadFontAsync(phNode.fontName);
-                    phNode.characters = humanTitle;
-                  } catch (eTxt) {}
-                  break;
+                    await figma.loadFontAsync(bodyNode.fontName);
+                    bodyNode.characters = spec.modalBody;
+                  } catch (eBodyTxt) {}
+                } else {
+                  warnings.push(spec.name + ": Modal body text parsed ('" + spec.modalBody.slice(0, 40) + "...') but no second placeholder text node found in the master to override.");
+                  counts.warnings++;
                 }
               }
             } catch (eModalText) { /* non-fatal */ }
@@ -1499,6 +1581,29 @@ async function buildArtboards(payload) {
         }
         var matchInst = matchComp.createInstance();
         matchArtboard.appendChild(matchInst);
+        // Diagnostic: verify the instance is visible + has size (Issue 4).
+        // Empty-looking artboards in this band usually trace back to one of:
+        //   - instance.visible=false (rare — DS authoring oversight)
+        //   - zero width/height (variant referenced has no content)
+        //   - user picked a variant label, not a component instance, on canvas
+        if (!matchInst.visible) {
+          warnings.push("Match — " + match.componentName + ": instance was created but visible=false. Setting visible=true.");
+          counts.warnings++;
+          try { matchInst.visible = true; } catch (eVis) {}
+        }
+        if (matchInst.width === 0 || matchInst.height === 0) {
+          warnings.push("Match — " + match.componentName + ": instance has zero dimensions (" + matchInst.width + "×" + matchInst.height + "). Component may not render. Check the DS component in Figma.");
+          counts.warnings++;
+        }
+        // If component is a variant inside a component-set, .key refers to the variant.
+        // importComponentByKeyAsync should resolve it, but log if name shows variant syntax.
+        if (match.componentName && /=/.test(match.componentName)) {
+          warnings.push("Match — " + match.componentName + ": this looks like a variant name (contains '='). Make sure the user selected a component INSTANCE on the canvas, not a variant label in the layer panel.");
+          counts.warnings++;
+        }
+        // Ensure ABSOLUTE positioning so the centering math below isn't a no-op
+        // when the artboard inherits auto-layout from anywhere upstream.
+        try { matchInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
         // Center the instance in the artboard
         matchInst.x = Math.round((ARTBOARD_W - matchInst.width) / 2);
         matchInst.y = Math.round((ARTBOARD_H - matchInst.height) / 2);

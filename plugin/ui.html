@@ -741,25 +741,43 @@
     }
     .candidates-card__upload-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
     .candidates-card__mapping-chip {
-      font: 10px var(--font-mono);
-      color: var(--primary);
-      padding: 2px 6px;
-      background: rgba(19, 121, 243, 0.1);
-      border-radius: 3px;
       display: inline-flex;
       align-items: center;
       gap: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid var(--primary);
+      background: transparent;
+      color: var(--primary);
+      border-radius: 3px;
+      font-family: var(--font-mono);
     }
+    /* Hidden state must beat the inline-flex above (Issue 7). Without
+       !important the [hidden] attribute leaves an empty blue rect on
+       unmapped rows. */
+    .candidates-card__mapping-chip[hidden] {
+      display: none !important;
+    }
+    .candidates-card__mapping-chip__label {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--primary);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    .candidates-card__mapping-chip__label:hover { text-decoration: underline; }
     .candidates-card__mapping-chip__close {
       background: none;
       border: none;
       cursor: pointer;
       color: var(--primary);
-      font-size: 12px;
+      font-size: 14px;
+      line-height: 1;
       padding: 0 2px;
       font-family: inherit;
       border-radius: 2px;
-      line-height: 1;
     }
     .candidates-card__mapping-chip__close:hover {
       background: rgba(19, 121, 243, 0.15);
@@ -778,18 +796,18 @@
     .candidates-card__ds-btn:hover { background: rgba(19, 121, 243, 0.06); }
 
     /* ---- Manual matches section (Screen 03) ----
-       Sits ABOVE the DS candidates card. White BG distinguishes it from
-       the grey mapping-section cards (System states / Modals / Toasts);
-       the header echoes the mapping-section count-chip pattern. */
+       Matches the other Screen 03 cards (System states / Modals / Toasts /
+       DS components used) — no white BG, no special border. Pure structural
+       section so the panel reads as one consistent surface. */
     .manual-matches-card {
-      margin-top: 0;
-      background: #fff;
-      border-radius: 6px;
-      padding: 12px;
-      border: 1px solid var(--border-default);
+      margin-bottom: 0; /* let panel body gap handle spacing */
+      padding: 0;
+      background: transparent;
+      border: none;
     }
     .manual-matches-card__head {
       display: flex; align-items: center; gap: 8px;
+      font: 600 13px var(--font-base, inherit);
       margin-bottom: 8px;
       color: var(--text-primary);
     }
@@ -4205,9 +4223,18 @@
         function fillMappingChip(chip, componentName, candName) {
           if (!chip) return;
           chip.innerHTML = "";
-          var chipLabel = document.createElement("span");
+          // Label is now a button — clicking it re-opens Screen M for re-picking
+          // (replaces the separate "Change" button that used to sit beside the chip).
+          var chipLabel = document.createElement("button");
+          chipLabel.className = "candidates-card__mapping-chip__label";
+          chipLabel.type = "button";
+          chipLabel.title = "Change DS component";
           chipLabel.textContent = "→ " + componentName;
+          chipLabel.addEventListener("click", function () {
+            openScreenM(candName, "candidate");
+          });
           chip.appendChild(chipLabel);
+
           var chipClose = document.createElement("button");
           chipClose.className = "candidates-card__mapping-chip__close";
           chipClose.type = "button";
@@ -4349,7 +4376,12 @@
                 return { name: s, meta: "" };
               }) },
             { card: cards[1], items: (data.modals || []).map(function (m) {
-                return { name: m, meta: "" };
+                // m is now an object { name, title, body } from parseHtml.
+                // Use parsed title as meta when available so Screen 02's
+                // modal card shows "openSelectConfirmModal()" + "Confirm select".
+                var label = (m && m.name) ? m.name : String(m || "");
+                var titleMeta = (m && m.title) ? m.title : "";
+                return { name: label, meta: titleMeta };
               }) },
             { card: cards[2], items: (data.toasts || []).map(function (t) {
                 return {
@@ -4526,7 +4558,8 @@
               console.error("Failed to set mapping:", msg.error);
               return;
             }
-            // Update the row's chip (now tag-style with inline ×) + DS button text
+            // Update the row's chip (now clickable label + ×) and hide the
+            // Pick DS button — the chip's label handles re-picking now.
             var s03 = document.querySelectorAll(".strip__cell")[2];
             if (s03) {
               var row = s03.querySelector('[data-candidate="' + msg.candidateName + '"]');
@@ -4534,7 +4567,7 @@
                 var chip = row.querySelector(".candidates-card__mapping-chip");
                 fillMappingChip(chip, msg.componentName, msg.candidateName);
                 var dsBtn = row.querySelector(".candidates-card__ds-btn");
-                if (dsBtn) dsBtn.textContent = "Change";
+                if (dsBtn) dsBtn.style.display = "none";
               }
             }
             goBack(); // return from Screen M to Screen 03
@@ -4545,7 +4578,7 @@
               console.error("Failed to remove mapping:", msg.error);
               return;
             }
-            // Revert the row: hide chip (which now also hides the inline ×), reset DS btn text
+            // Revert: hide chip, restore the Pick DS button.
             var s03r = document.querySelectorAll(".strip__cell")[2];
             if (s03r) {
               var rowR = s03r.querySelector('[data-candidate="' + msg.candidateName + '"]');
@@ -4556,7 +4589,7 @@
                   chipR.hidden = true;
                 }
                 var dsBtnR = rowR.querySelector(".candidates-card__ds-btn");
-                if (dsBtnR) dsBtnR.textContent = "Pick DS component";
+                if (dsBtnR) dsBtnR.style.display = "";
               }
             }
             return;
@@ -4571,7 +4604,7 @@
               var chip = row.querySelector(".candidates-card__mapping-chip");
               fillMappingChip(chip, mappings[name].componentName, name);
               var dsBtn = row.querySelector(".candidates-card__ds-btn");
-              if (dsBtn) dsBtn.textContent = "Change";
+              if (dsBtn) dsBtn.style.display = "none";
             });
             return;
           }

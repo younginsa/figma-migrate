@@ -71,6 +71,21 @@ ok = assertGte('modals.length', result.modals.length, 3) && ok;
 ok = assertGte('toasts.length', result.toasts.length, 3) && ok;
 ok = assertEq('candidates.length', result.candidates.length, 3) && ok;
 
+// Phase E v3: modals are objects { name, title, body } (was: bare strings).
+// Verify the contract — at least one modal has a name; title/body may be
+// empty if the parser couldn't extract them, but the shape must be object.
+console.log('\nModal shape check (Phase E v3 — object with name/title/body):');
+const badShape = result.modals.filter(m => typeof m !== 'object' || !m || typeof m.name !== 'string');
+if (badShape.length > 0) {
+  console.log('  FAIL: ' + badShape.length + ' modal(s) are not objects with .name string');
+  ok = false;
+} else {
+  console.log('  PASS: all ' + result.modals.length + ' modals are { name, title, body } objects');
+}
+result.modals.forEach((m, i) => {
+  console.log('  ' + (i + 1) + '. name="' + m.name + '" title="' + m.title + '" body="' + (m.body || '').slice(0, 40) + '"');
+});
+
 console.log('\nCandidate names:');
 result.candidates.forEach((c, i) => {
   console.log('  ' + (i + 1) + '. "' + c.name + '" (htmlText: "' + c.htmlText + '")');
