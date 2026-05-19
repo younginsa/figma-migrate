@@ -32,6 +32,7 @@ Phase structure (A foundations → E manual rescue) was Claude's organizing choi
 | D | Pick DS component picker (Screen M), candidate→component mapping, build instantiates real DS components | ✅ verified |
 | E | Manual rescue match (Screen N) for parser misses, Matched elements band | ⏸️ pending verification |
 | F (planned) | Auto-capture html2canvas previews for unmapped DS Candidates | 📋 scoped, not started |
+| G (planned) | Per-element DS instantiation in state artboards (input, .btn, etc.) | 📋 scoped, not started |
 
 ## What v0.1 deliberately doesn't do
 
@@ -53,6 +54,15 @@ Phase structure (A foundations → E manual rescue) was Claude's organizing choi
 ## Q&A log
 
 Compact answers to conceptual questions asked during the project. Append new ones at the top.
+
+### Phase G: Add per-element DS instantiation to v0.1? (2026-05-19)
+Yes (scope expansion). Currently v0.1 builds state artboards with Setting dialog wrapper but empty body — `<input>`, `.btn`, etc. detected by parser but not instantiated. Phase G walks each state's HTML for known DS patterns, instantiates matching components as children of that state's artboard body using vertical auto-layout. ~4-6 hrs. Not pixel-perfect layout (CSS→Figma auto-layout translation is lossy) but makes state artboards meaningfully usable.
+
+### Real-world unannotated HTML — does someone have to annotate? (2026-05-19)
+Yes. v0.1 flow: HTML with `data-ds-candidate` annotation → parser auto-detects; HTML with known patterns (`.btn`, `<input>`, `.modal`) → DS_KEYS-based detection; HTML with custom unannotated structures → user clicks through Manual rescue match (Screen N) one-by-one. Real-world means either one-time annotation pass per mockup OR lots of Screen N clicks. v0.2 + Claude auto-detects from unannotated HTML.
+
+### How does the plugin "match" without LLM? (2026-05-19)
+Pure regex on known HTML conventions: `class="btn"` → Button, `<input>` → input, `class="modal"`/`openModal()` → Modal, `class="toast"`/`showToast()` → Toast, `class="dialog"` → Setting dialog, `centered-state`/`spinner` → System states, `class="tabs"` → tab. Maps to hardcoded DS_KEYS. Deterministic but limited to this fixed pattern set. `data-ds-candidate` is the escape hatch for elements outside the patterns.
 
 ### Phase F: Add auto-capture screenshots for unmapped candidates? (2026-05-19)
 Yes. ~4-5 hrs work, three tasks (F1 UI iframe + html2canvas, F2 PNG persistence, F3 build embed). For HTML with state-switcher JS, v0.1 captures default-state candidates only; driving state changes per capture deferred to v0.2.
