@@ -720,6 +720,24 @@ async function safeOverlayInstance(host, key, variantName, x, y) {
   }
 }
 
+// Convert a modal function name like "openSelectConfirmModal" into a
+// human-readable title like "Select Confirm". Strips the "open" prefix
+// and the trailing "Modal"/"Confirm" suffix (when redundant), then
+// splits CamelCase into spaced words. Used as a fallback modal title
+// until the parser captures real modal title/body text from HTML.
+function humanizeModalName(name) {
+  if (!name) return "Modal";
+  var s = String(name).replace(/\(\)\s*$/, ""); // strip trailing "()"
+  s = s.replace(/^open/, ""); // strip "open" prefix
+  s = s.replace(/Modal$/, ""); // strip "Modal" suffix
+  // Split CamelCase: insert a space before each capital that follows
+  // a lowercase letter or another capital followed by a lowercase.
+  s = s.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  s = s.replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+  s = s.trim();
+  return s || "Modal";
+}
+
 // Walk an instance and collect ALL text nodes whose current characters
 // (case-insensitively, exact or stripped) match `placeholder`. Used
 // to retarget every "Tab" placeholder in the Setting dialog (the
@@ -1128,6 +1146,25 @@ async function buildArtboards(payload) {
           if (!sampledStyles) {
             sampledStyles = collectStyleSamples(dialog);
           }
+
+          // The Setting dialog master ships with a default empty-state body
+          // ("No profile ID is found / Add Profile"). For content states
+          // (edit, edit-dirty, edit-invalid, populated), we don't want
+          // that default content showing through — Phase G will fill the
+          // body with per-element DS components based on the HTML. For
+          // now, hide the master's default body children so the artboard
+          // reads as an intentionally-blank content slot.
+          // Mirrors the system-state branch above (lines ~1060-1073).
+          var dialogBodyContent = dialog.findOne(function (n) {
+            return n.type === "FRAME" && /^body$/i.test(n.name);
+          }) || dialog.findOne(function (n) {
+            return n.type === "FRAME" && /content/i.test(n.name);
+          });
+          if (dialogBodyContent) {
+            for (var bi2 = 0; bi2 < dialogBodyContent.children.length; bi2++) {
+              try { dialogBodyContent.children[bi2].visible = false; } catch (eVis2) {}
+            }
+          }
         }
       }
 
@@ -1157,6 +1194,32 @@ async function buildArtboards(payload) {
           if (!modalRes.ok) {
             warnings.push(spec.name + ": Modal overlay — " + modalRes.reason);
             counts.warnings++;
+          } else if (modalRes.instance) {
+            // TODO(Phase F+): parseHtml does not yet capture modal title/body
+            // text from the HTML — it only sees the function name
+            // (openSelectConfirmModal). Until that gap is closed, override
+            // the modal's first "Place holding text" / "Title" node with
+            // a cleaned-up version of the modal's function name so the
+            // artboard reads like "Select Confirm" instead of placeholder.
+            warnings.push(
+              "modal " + spec.name +
+              ": HTML-based text override not yet implemented (parser doesn't capture modal title); using humanized function name as fallback"
+            );
+            counts.warnings++;
+            try {
+              var humanTitle = humanizeModalName(spec.modalName || spec.name);
+              var placeholderCandidates = ["Place holding text", "Title", "Heading"];
+              for (var pj = 0; pj < placeholderCandidates.length; pj++) {
+                var phNode = findTextByChars(modalRes.instance, placeholderCandidates[pj]);
+                if (phNode) {
+                  try {
+                    await figma.loadFontAsync(phNode.fontName);
+                    phNode.characters = humanTitle;
+                  } catch (eTxt) {}
+                  break;
+                }
+              }
+            } catch (eModalText) { /* non-fatal */ }
           }
         } else {
           warnings.push(spec.name + ": Modal master not importable");
@@ -1417,27 +1480,37 @@ async function buildArtboards(payload) {
       matchArtboard.y = matchArtboardY + Math.floor(mi / GRID_COLS) * GRID_STRIDE_Y;
       matchedNodes.push(matchArtboard);
 
+      // Defensive: skip entries with no componentKey (shouldn't happen
+      // after the screenNComplete guard, but protects against legacy
+      // entries persisted before the guard was added).
+      if (!match.componentKey) {
+        warnings.push("Match — " + (match.componentName || "(unnamed)") + ": componentKey is missing; the DS picker did not capture a valid component. Re-add the match via Screen N.");
+        counts.warnings++;
+        counts.manualMatches = mi + 1;
+        continue;
+      }
       try {
         var matchComp = await figma.importComponentByKeyAsync(match.componentKey);
-        if (matchComp) {
-          var matchInst = matchComp.createInstance();
-          matchArtboard.appendChild(matchInst);
-          // Center the instance in the artboard
-          matchInst.x = Math.round((ARTBOARD_W - matchInst.width) / 2);
-          matchInst.y = Math.round((ARTBOARD_H - matchInst.height) / 2);
-          // Apply text override from htmlText if available
-          if (match.htmlText) {
-            var textNodes = matchInst.findAll(function (n) { return n.type === "TEXT"; });
-            if (textNodes && textNodes.length > 0) {
-              try {
-                await figma.loadFontAsync(textNodes[0].fontName);
-                textNodes[0].characters = match.htmlText.slice(0, 200);
-              } catch (eText) { /* non-fatal */ }
-            }
-          }
-        } else {
-          warnings.push("Match — " + match.componentName + ": importComponentByKeyAsync returned null");
+        if (!matchComp) {
+          warnings.push("Match — " + match.componentName + ": importComponentByKeyAsync returned null. The component may have been deleted from the library, or the key is stale.");
           counts.warnings++;
+          counts.manualMatches = mi + 1;
+          continue; // skip this match entirely — no instance to create
+        }
+        var matchInst = matchComp.createInstance();
+        matchArtboard.appendChild(matchInst);
+        // Center the instance in the artboard
+        matchInst.x = Math.round((ARTBOARD_W - matchInst.width) / 2);
+        matchInst.y = Math.round((ARTBOARD_H - matchInst.height) / 2);
+        // Apply text override from htmlText if available
+        if (match.htmlText) {
+          var textNodes = matchInst.findAll(function (n) { return n.type === "TEXT"; });
+          if (textNodes && textNodes.length > 0) {
+            try {
+              await figma.loadFontAsync(textNodes[0].fontName);
+              textNodes[0].characters = match.htmlText.slice(0, 200);
+            } catch (eText) { /* non-fatal */ }
+          }
         }
       } catch (eImport) {
         warnings.push("Match — " + match.componentName + ": " + (eImport.message || String(eImport)));
@@ -1640,6 +1713,16 @@ figma.ui.onmessage = async (msg) => {
 
     case "register-manual-match": {
       try {
+        // Defensive: the UI guard already blocks empty componentKey,
+        // but a second check here prevents a bad write if the message
+        // shape changes or a future caller forgets the guard.
+        if (!msg.componentKey) {
+          figma.ui.postMessage({
+            type: "match-set",
+            error: "Cannot register match: componentKey is missing. Select a DS instance in Figma, or use 'Browse library instead'.",
+          });
+          break;
+        }
         var matches = (await figma.clientStorage.getAsync("manualMatches")) || [];
         if (matches.length >= 50) {
           figma.ui.postMessage({

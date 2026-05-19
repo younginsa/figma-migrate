@@ -710,15 +710,25 @@
       font-size: 12px;
       color: var(--text-secondary);
     }
-    /* Reset to flex so we can lay out name + upload button + status inline */
+    /* Two-line row: candidate name on its own line, action row (chip OR
+       Pick DS component button) wraps below. Avoids awkward mid-row
+       wrapping with long candidate names like
+       "Profile row — Selected (check + Details)". */
     .candidates-card__list { list-style: none; padding-left: 0; }
     .candidates-card__list li {
-      padding: 4px 0;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-default);
     }
-    .candidates-card__list-name { flex: 1; min-width: 0; word-break: break-word; }
+    .candidates-card__list li:last-child { border-bottom: none; }
+    .candidates-card__list-name {
+      font-weight: 500;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
     .candidates-card__upload-btn {
       flex: 0 0 auto;
       padding: 2px 8px;
@@ -736,6 +746,23 @@
       padding: 2px 6px;
       background: rgba(19, 121, 243, 0.1);
       border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .candidates-card__mapping-chip__close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--primary);
+      font-size: 12px;
+      padding: 0 2px;
+      font-family: inherit;
+      border-radius: 2px;
+      line-height: 1;
+    }
+    .candidates-card__mapping-chip__close:hover {
+      background: rgba(19, 121, 243, 0.15);
     }
     .candidates-card__ds-btn {
       margin-left: 6px;
@@ -749,28 +776,20 @@
       font-family: inherit;
     }
     .candidates-card__ds-btn:hover { background: rgba(19, 121, 243, 0.06); }
-    .candidates-card__remove-btn {
-      margin-left: 4px;
-      padding: 2px 6px;
-      font-size: 14px;
-      line-height: 1;
-      border: 1px solid var(--border-default);
-      background: transparent;
-      color: var(--text-secondary);
-      border-radius: 3px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .candidates-card__remove-btn:hover {
-      background: var(--bg-row-hover);
-      color: var(--text-primary);
-    }
 
-    /* ---- Manual matches section (Screen 03) ---- */
-    .manual-matches-card { margin-top: 16px; }
+    /* ---- Manual matches section (Screen 03) ----
+       Sits ABOVE the DS candidates card. White BG distinguishes it from
+       the grey mapping-section cards (System states / Modals / Toasts);
+       the header echoes the mapping-section count-chip pattern. */
+    .manual-matches-card {
+      margin-top: 0;
+      background: #fff;
+      border-radius: 6px;
+      padding: 12px;
+      border: 1px solid var(--border-default);
+    }
     .manual-matches-card__head {
       display: flex; align-items: center; gap: 8px;
-      font: 600 13px var(--font-base, inherit);
       margin-bottom: 8px;
       color: var(--text-primary);
     }
@@ -812,7 +831,12 @@
        dropdown for the DS variant on the right.
        ========================================================== */
     .mapping-section {
-      margin-top: 12px;
+      /* margin-top removed — panel__body's flex `gap: 16px` already
+         provides consistent spacing between every card on Screen 03
+         (System states / Modals / Toasts / Manual matches / DS
+         candidates). Keeping margin-top here stacks extra space and
+         makes the first three cards drift apart from the rest. */
+      margin-top: 0;
       padding: 12px;
       background: var(--bg-secondary, #fafafa);
       border: 1px solid var(--border, #e5e7eb);
@@ -1804,16 +1828,6 @@
               </div>
             </div>
 
-            <div class="candidates-card">
-              <h3 class="candidates-card__title">
-                <span class="pill pill--candidate">DS candidates</span>
-                <span id="candidatesCount">9 structures not in the DS</span>
-              </h3>
-              <ul class="candidates-card__list" id="candidatesList">
-                <!-- Populated dynamically from parse-result.data.candidates -->
-              </ul>
-            </div>
-
             <section class="manual-matches-card">
               <header class="manual-matches-card__head">
                 <h3>Manual matches</h3>
@@ -1824,6 +1838,16 @@
               </ul>
               <button class="btn btn--ghost btn--sm" id="addManualMatchBtn" type="button">+ Add match</button>
             </section>
+
+            <div class="candidates-card">
+              <h3 class="candidates-card__title">
+                <span class="pill pill--candidate">DS candidates</span>
+                <span id="candidatesCount">9 structures not in the DS</span>
+              </h3>
+              <ul class="candidates-card__list" id="candidatesList">
+                <!-- Populated dynamically from parse-result.data.candidates -->
+              </ul>
+            </div>
           </div>
           <div class="panel__footer panel__footer--right">
             <button class="btn btn--primary btn--lg">Build 17 artboards →</button>
@@ -3501,6 +3525,24 @@
         if (screenNCompleteEl) {
           screenNCompleteEl.addEventListener("click", function () {
             if (!manualHtmlSelection || !manualDsSelection) return;
+            // Defensive guard: refuse to persist a match without a real
+            // componentKey. The selection listener can set
+            // manualDsSelection to a node that isn't an instance (or to
+            // a node whose master key isn't resolvable) — in that case
+            // componentKey will be empty and the Matched elements band
+            // build will silently drop the entry.
+            if (!manualDsSelection.componentKey) {
+              var screenNEl = document.getElementById("screenN");
+              if (screenNEl) {
+                renderInlineError(
+                  screenNEl,
+                  "match",
+                  "No DS component captured. Select an instance in Figma (so its master can be imported), or use 'Browse library instead'.",
+                  [{ label: "Dismiss", onClick: function () { clearInlineErrors(screenNEl); } }]
+                );
+              }
+              return;
+            }
             parent.postMessage(
               {
                 pluginMessage: {
@@ -4157,6 +4199,30 @@
           );
         }
 
+        // Fill a mapping chip with the tag-style content: "→ ComponentName ×".
+        // The × is a real button inside the chip that posts a removal.
+        // candName is the candidate row key (used by the remove message).
+        function fillMappingChip(chip, componentName, candName) {
+          if (!chip) return;
+          chip.innerHTML = "";
+          var chipLabel = document.createElement("span");
+          chipLabel.textContent = "→ " + componentName;
+          chip.appendChild(chipLabel);
+          var chipClose = document.createElement("button");
+          chipClose.className = "candidates-card__mapping-chip__close";
+          chipClose.type = "button";
+          chipClose.title = "Remove mapping";
+          chipClose.textContent = "×";
+          chipClose.addEventListener("click", function () {
+            parent.postMessage(
+              { pluginMessage: { type: "remove-candidate-mapping", candidateName: candName } },
+              "*"
+            );
+          });
+          chip.appendChild(chipClose);
+          chip.hidden = false;
+        }
+
         function renderCandidates(candidates) {
           var allCells = document.querySelectorAll(".strip__cell");
           var screen03 = allCells[2];
@@ -4195,6 +4261,11 @@
             nameSpan.textContent = cand.name;
             li.appendChild(nameSpan);
 
+            // Single chip element: when a mapping exists, it contains a
+            // label span AND an inline × close button. Populated lazily
+            // by mapping-set / candidate-mappings-list handlers (the
+            // tag-style UI replaces the previous separate chip + remove
+            // button pair).
             var mappingChip = document.createElement("span");
             mappingChip.className = "candidates-card__mapping-chip";
             mappingChip.hidden = true;
@@ -4208,22 +4279,6 @@
               openScreenM(cand.name, "candidate");
             });
             li.appendChild(pickDsBtn);
-
-            // × Remove button — only visible when mapping exists.
-            // Shown/hidden by mapping-set and mapping-removed handlers.
-            var removeBtn = document.createElement("button");
-            removeBtn.className = "candidates-card__remove-btn";
-            removeBtn.type = "button";
-            removeBtn.title = "Remove this mapping";
-            removeBtn.hidden = true;
-            removeBtn.textContent = "×";
-            removeBtn.addEventListener("click", function () {
-              parent.postMessage(
-                { pluginMessage: { type: "remove-candidate-mapping", candidateName: cand.name } },
-                "*"
-              );
-            });
-            li.appendChild(removeBtn);
 
             list.appendChild(li);
           });
@@ -4471,20 +4526,15 @@
               console.error("Failed to set mapping:", msg.error);
               return;
             }
-            // Update the row's chip + DS button text + show remove
+            // Update the row's chip (now tag-style with inline ×) + DS button text
             var s03 = document.querySelectorAll(".strip__cell")[2];
             if (s03) {
               var row = s03.querySelector('[data-candidate="' + msg.candidateName + '"]');
               if (row) {
                 var chip = row.querySelector(".candidates-card__mapping-chip");
-                if (chip) {
-                  chip.textContent = "→ " + msg.componentName;
-                  chip.hidden = false;
-                }
+                fillMappingChip(chip, msg.componentName, msg.candidateName);
                 var dsBtn = row.querySelector(".candidates-card__ds-btn");
                 if (dsBtn) dsBtn.textContent = "Change";
-                var removeBtn = row.querySelector(".candidates-card__remove-btn");
-                if (removeBtn) removeBtn.hidden = false;
               }
             }
             goBack(); // return from Screen M to Screen 03
@@ -4495,20 +4545,18 @@
               console.error("Failed to remove mapping:", msg.error);
               return;
             }
-            // Revert the row: hide chip + remove btn, reset DS btn text
+            // Revert the row: hide chip (which now also hides the inline ×), reset DS btn text
             var s03r = document.querySelectorAll(".strip__cell")[2];
             if (s03r) {
               var rowR = s03r.querySelector('[data-candidate="' + msg.candidateName + '"]');
               if (rowR) {
                 var chipR = rowR.querySelector(".candidates-card__mapping-chip");
                 if (chipR) {
-                  chipR.textContent = "";
+                  chipR.innerHTML = "";
                   chipR.hidden = true;
                 }
                 var dsBtnR = rowR.querySelector(".candidates-card__ds-btn");
                 if (dsBtnR) dsBtnR.textContent = "Pick DS component";
-                var removeBtnR = rowR.querySelector(".candidates-card__remove-btn");
-                if (removeBtnR) removeBtnR.hidden = true;
               }
             }
             return;
@@ -4521,14 +4569,9 @@
               var row = s03b.querySelector('[data-candidate="' + name + '"]');
               if (!row) return;
               var chip = row.querySelector(".candidates-card__mapping-chip");
-              if (chip) {
-                chip.textContent = "→ " + mappings[name].componentName;
-                chip.hidden = false;
-              }
+              fillMappingChip(chip, mappings[name].componentName, name);
               var dsBtn = row.querySelector(".candidates-card__ds-btn");
               if (dsBtn) dsBtn.textContent = "Change";
-              var removeBtn = row.querySelector(".candidates-card__remove-btn");
-              if (removeBtn) removeBtn.hidden = false;
             });
             return;
           }
