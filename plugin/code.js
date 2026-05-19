@@ -1065,28 +1065,32 @@ async function buildArtboards(payload) {
               }))
             : null;
           if (dialogBody) {
-            // Hide existing body children (the default empty-state
-            // content the dialog ships with — would overlap visually
-            // with System states).
+            // Hide existing body children so they don't show through behind
+            // the System states overlay we add to the artboard below.
             for (var bi = 0; bi < dialogBody.children.length; bi++) {
               try { dialogBody.children[bi].visible = false; } catch (eVis) {}
             }
           }
 
-          var sysHost = dialogBody || artboard;
+          // Append System states to the ARTBOARD (not dialogBody) — the dialog
+          // body is typically an auto-layout frame where inst.x/y is a no-op,
+          // causing the centering math to silently fail. The artboard is a
+          // plain frame; the System states will render above the dialog in
+          // z-order and we can center it freely.
           var sysRes = await safeOverlayInstance(
-            sysHost,
+            artboard,
             DS_KEYS.SystemStates,
             sysVariant,
             0, 0
           );
           if (sysRes.ok && sysRes.instance) {
-            // Center within the target container (dialogBody if present,
-            // else artboard).
+            // Mark it ABSOLUTE-positioned so any auto-layout inheritance from
+            // the artboard (rare but possible) doesn't override our centering.
+            try { sysRes.instance.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
             var siW = sysRes.instance.width;
             var siH = sysRes.instance.height;
-            sysRes.instance.x = Math.round((sysHost.width - siW) / 2);
-            sysRes.instance.y = Math.round((sysHost.height - siH) / 2);
+            sysRes.instance.x = Math.round((artboard.width - siW) / 2);
+            sysRes.instance.y = Math.round((artboard.height - siH) / 2);
           } else {
             warnings.push(spec.name + ": System states overlay — " + (sysRes.reason || "unknown"));
             counts.warnings++;

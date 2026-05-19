@@ -730,11 +730,6 @@
       cursor: pointer;
     }
     .candidates-card__upload-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
-    .candidates-card__upload-status {
-      flex: 0 0 auto;
-      color: var(--success);
-      font-weight: 600;
-    }
     .candidates-card__mapping-chip {
       font: 10px var(--font-mono);
       color: var(--primary);
@@ -1540,6 +1535,30 @@
       border: 1px solid var(--border-default);
       border-radius: 6px;
       background: white;
+    }
+    .manual-match__mode {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .manual-match__mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-default);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .manual-match__mode-btn {
+      background: transparent;
+      border: none;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .manual-match__mode-btn.is-active {
+      background: var(--primary);
+      color: white;
     }
   </style>
 </head>
@@ -2582,6 +2601,13 @@
                 <button class="manual-match__browse-link" id="manualBrowseLib" type="button">Browse library instead</button>
               </div>
             </div>
+            <div class="manual-match__mode">
+              <span class="manual-match__mode-label">Iframe click:</span>
+              <div class="manual-match__mode-toggle" id="manualMatchModeToggle">
+                <button class="manual-match__mode-btn is-active" data-mode="navigate" type="button">Navigate</button>
+                <button class="manual-match__mode-btn" data-mode="select" type="button">Select</button>
+              </div>
+            </div>
             <iframe class="manual-match__iframe" id="manualMatchIframe" sandbox="allow-same-origin allow-scripts"></iframe>
           </div>
           <div class="panel__footer panel__footer--right">
@@ -3325,11 +3351,19 @@
         var screenNIdx = 12; // 13th .strip__cell (zero-indexed)
         var manualHtmlSelection = null; // {selector, text}
         var manualDsSelection = null;   // {componentKey, componentName, parentName}
+        var manualMatchMode = "navigate"; // 'navigate' (default) | 'select'
 
         function openScreenN() {
           manualHtmlSelection = null;
           manualDsSelection = null;
           updateManualMatchFields();
+          // Reset to navigate mode each entry so users always start with
+          // a navigable iframe (tabs, links, dev-panel state switcher work).
+          manualMatchMode = "navigate";
+          var toggleBtns = document.querySelectorAll(".manual-match__mode-btn");
+          for (var ti = 0; ti < toggleBtns.length; ti++) {
+            toggleBtns[ti].classList.toggle("is-active", toggleBtns[ti].getAttribute("data-mode") === "navigate");
+          }
           // Load HTML into iframe (uses textarea value as source)
           var iframe = document.getElementById("manualMatchIframe");
           if (iframe && htmlInput && htmlInput.value) {
@@ -3397,14 +3431,20 @@
               var selectedEl = null;
               var hoveredEl = null;
               doc.addEventListener("mouseover", function (e) {
+                if (manualMatchMode !== "select") return;
                 if (hoveredEl) hoveredEl.classList.remove("__manual-hover");
                 hoveredEl = e.target;
                 if (hoveredEl && hoveredEl !== selectedEl) hoveredEl.classList.add("__manual-hover");
               }, true);
               doc.addEventListener("mouseout", function () {
+                if (manualMatchMode !== "select") return;
                 if (hoveredEl) { hoveredEl.classList.remove("__manual-hover"); hoveredEl = null; }
               }, true);
               doc.addEventListener("click", function (e) {
+                if (manualMatchMode !== "select") {
+                  // Navigate mode: let the click do its thing. Don't preventDefault.
+                  return;
+                }
                 e.preventDefault();
                 e.stopPropagation();
                 if (selectedEl) selectedEl.classList.remove("__manual-selected");
@@ -3427,6 +3467,22 @@
               }, true);
             } catch (eIframe) {
               console.error("Manual iframe wire failed:", eIframe);
+            }
+          });
+        }
+
+        // Wire the mode toggle (Navigate / Select) above the iframe.
+        var manualMatchModeToggle = document.getElementById("manualMatchModeToggle");
+        if (manualMatchModeToggle) {
+          manualMatchModeToggle.addEventListener("click", function (e) {
+            var btn = e.target.closest(".manual-match__mode-btn");
+            if (!btn) return;
+            var mode = btn.getAttribute("data-mode");
+            if (!mode || mode === manualMatchMode) return;
+            manualMatchMode = mode;
+            var allBtns = manualMatchModeToggle.querySelectorAll(".manual-match__mode-btn");
+            for (var mi = 0; mi < allBtns.length; mi++) {
+              allBtns[mi].classList.toggle("is-active", allBtns[mi] === btn);
             }
           });
         }
@@ -3733,7 +3789,8 @@
           });
         }
 
-        // Update the candidate row's button + ✓ indicator after capture.
+        // Update the candidate row's button label after capture. The
+        // redundant ✓ status indicator was removed in Phase E polish.
         function markCandidateCaptured(name) {
           var allCells = document.querySelectorAll(".strip__cell");
           var screen03 = allCells[2];
@@ -3744,9 +3801,7 @@
             if (!nameEl) continue;
             if ((nameEl.textContent || "").trim() === name) {
               var btn = items[i].querySelector(".candidates-card__upload-btn");
-              var status = items[i].querySelector(".candidates-card__upload-status");
               if (btn) btn.textContent = "Re-pick";
-              if (status) status.hidden = false;
               break;
             }
           }
@@ -4170,12 +4225,6 @@
             });
             li.appendChild(removeBtn);
 
-            var status = document.createElement("span");
-            status.className = "candidates-card__upload-status";
-            status.hidden = true;
-            status.textContent = "✓";
-            li.appendChild(status);
-
             list.appendChild(li);
           });
 
@@ -4422,7 +4471,7 @@
               console.error("Failed to set mapping:", msg.error);
               return;
             }
-            // Update the row's chip + DS button text + status check + show remove
+            // Update the row's chip + DS button text + show remove
             var s03 = document.querySelectorAll(".strip__cell")[2];
             if (s03) {
               var row = s03.querySelector('[data-candidate="' + msg.candidateName + '"]');
@@ -4436,8 +4485,6 @@
                 if (dsBtn) dsBtn.textContent = "Change";
                 var removeBtn = row.querySelector(".candidates-card__remove-btn");
                 if (removeBtn) removeBtn.hidden = false;
-                var status = row.querySelector(".candidates-card__upload-status");
-                if (status) status.hidden = false;
               }
             }
             goBack(); // return from Screen M to Screen 03
@@ -4448,7 +4495,7 @@
               console.error("Failed to remove mapping:", msg.error);
               return;
             }
-            // Revert the row: hide chip + remove btn + status, reset DS btn text
+            // Revert the row: hide chip + remove btn, reset DS btn text
             var s03r = document.querySelectorAll(".strip__cell")[2];
             if (s03r) {
               var rowR = s03r.querySelector('[data-candidate="' + msg.candidateName + '"]');
@@ -4462,8 +4509,6 @@
                 if (dsBtnR) dsBtnR.textContent = "Pick DS component";
                 var removeBtnR = rowR.querySelector(".candidates-card__remove-btn");
                 if (removeBtnR) removeBtnR.hidden = true;
-                var statusR = rowR.querySelector(".candidates-card__upload-status");
-                if (statusR) statusR.hidden = true;
               }
             }
             return;
@@ -4484,8 +4529,6 @@
               if (dsBtn) dsBtn.textContent = "Change";
               var removeBtn = row.querySelector(".candidates-card__remove-btn");
               if (removeBtn) removeBtn.hidden = false;
-              var status = row.querySelector(".candidates-card__upload-status");
-              if (status) status.hidden = false;
             });
             return;
           }
