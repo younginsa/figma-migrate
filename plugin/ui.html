@@ -4045,22 +4045,53 @@
         }
 
         async function captureAllStates(htmlSource, stateNames) {
-          if (!captureIframe || !stateNames || stateNames.length === 0) {
+          console.log("[H8] captureAllStates called", {
+            hasIframe: !!captureIframe,
+            stateNamesCount: (stateNames || []).length,
+            htmlLength: (htmlSource || "").length,
+            states: stateNames,
+          });
+          if (!captureIframe) {
+            console.warn("[H8] captureIframe element not found in DOM");
+            return [];
+          }
+          if (!stateNames || stateNames.length === 0) {
+            console.warn("[H8] no state names provided");
             return [];
           }
 
           // Load the HTML into the hidden iframe
+          console.log("[H8] setting srcdoc, waiting for load...");
           await new Promise(function (resolve) {
-            captureIframe.onload = function () { resolve(); };
+            var loaded = false;
+            captureIframe.onload = function () {
+              if (loaded) return;
+              loaded = true;
+              console.log("[H8] iframe load fired");
+              resolve();
+            };
             captureIframe.srcdoc = htmlSource;
+            // Safety: if onload doesn't fire within 3s, resolve anyway
+            setTimeout(function () {
+              if (loaded) return;
+              loaded = true;
+              console.warn("[H8] iframe load timed out at 3s, proceeding");
+              resolve();
+            }, 3000);
           });
           // Let JS settle
           await waitForFrames(3);
 
           var captures = [];
           var doc = captureIframe.contentDocument;
+          console.log("[H8] iframe inspection", {
+            hasDoc: !!doc,
+            hasBody: !!(doc && doc.body),
+            bodyChildren: doc && doc.body ? doc.body.children.length : 0,
+            bodyHTML: doc && doc.body ? (doc.body.innerHTML || "").slice(0, 200) : "(no body)",
+          });
           if (!doc || !doc.body) {
-            console.warn("Capture iframe has no document/body");
+            console.warn("[H8] Capture iframe has no document/body — sandbox restriction?");
             return captures;
           }
 
@@ -5098,8 +5129,16 @@
               // Non-blocking; runs in parallel with user reviewing Screen 02.
               var statesToCapture = (msg.data && msg.data.states) || [];
               var htmlSource = (typeof htmlInput !== "undefined" && htmlInput && htmlInput.value) ? htmlInput.value : "";
+              console.log("[H8] parse-result trigger check", {
+                statesCount: statesToCapture.length,
+                htmlLength: htmlSource.length,
+                states: statesToCapture,
+                willRun: statesToCapture.length > 0 && htmlSource.length > 0,
+              });
               if (statesToCapture.length > 0 && htmlSource) {
                 runStateCaptures(htmlSource, statesToCapture);
+              } else {
+                console.warn("[H8] capture skipped — missing states or htmlSource");
               }
               // Populate Screen 03's mapping dropdowns with the auto-suggested
               // variants. User reviews + adjusts before clicking Build.
