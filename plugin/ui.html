@@ -4045,6 +4045,11 @@
         }
 
         async function captureAllStates(htmlSource, stateNames) {
+          // Lazy lookup: iframe is at end of <body>, after this script,
+          // so the early-IIFE getElementById returns null. Re-query here.
+          if (!captureIframe) {
+            captureIframe = document.getElementById("captureIframe");
+          }
           console.log("[H8] captureAllStates called", {
             hasIframe: !!captureIframe,
             stateNamesCount: (stateNames || []).length,
