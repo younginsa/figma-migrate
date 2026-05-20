@@ -359,6 +359,7 @@ function parseHtml(html) {
   // naive brace counting; literal braces inside string/regex would otherwise
   // throw off that count and pull extra code into the extracted body.
   var OPEN_BRACE = String.fromCharCode(123);
+  var CLOSE_BRACE = String.fromCharCode(125);
   var DOLLAR_BRACE = "$" + OPEN_BRACE;
   var DOUBLE_BRACE = OPEN_BRACE + OPEN_BRACE;
   function computeSignature(tag, rawClassAttr) {
@@ -422,6 +423,139 @@ function parseHtml(html) {
   var patternList = Object.keys(patterns).map(function (k) { return patterns[k]; });
   patternList.sort(function (a, b) { return b.count - a.count; });
 
+  // ============================================================
+  // Per-state body element extraction (Phase H4-refactor)
+  // For each parsed state, find the render function the dev-panel
+  // switch calls for it, extract that function body, then walk the
+  // body for pattern signatures.
+  // Output is stateBodies indexed by state name; each entry is an
+  // array of signature/tag/text rows.
+  //
+  // NOTE: this file is brace-sensitive (smoke-parser uses naive brace
+  // counting to extract parseHtml). Any literal brace chars in
+  // comments or strings must come in matched pairs, or be replaced
+  // with the OPEN_BRACE / CLOSE_BRACE constants.
+  // ============================================================
+
+  var stateBodies = {};
+
+  // Step A: map state name → render function name.
+  //
+  // HiNAS-style switch blocks set `state.page = 'X'` (and sometimes call
+  // navigateToEdit) instead of directly returning a render function.
+  // We scan each case body for clues:
+  //   1. If the case body assigns `state.page = 'X'` → renderXPage
+  //   2. Else if it calls `navigateToEdit(...)` → renderEditPage
+  //   3. Else fallback to the first identifier after the colon
+  //      (covers older `case 'X': return renderX(...)` style).
+  // Render-function names are normalized to TitleCase + "Page" suffix
+  // (e.g. 'list' → renderListPage). If the corresponding function
+  // doesn't exist in the source, extraction falls back to no body.
+  var stateToFunction = {};
+  // Collect case start positions in declaration order so we can slice
+  // each case body up to the next `case ` or closing of switch.
+  var casePositions = [];
+  var caseHeadRe = /case\s+['"]([^'"]+)['"]\s*:/g;
+  var cm;
+  while ((cm = caseHeadRe.exec(html)) !== null) {
+    casePositions.push({ name: cm[1], start: cm.index, end: cm.index + cm[0].length });
+  }
+  function capitalize(s) {
+    if (!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  for (var ci = 0; ci < casePositions.length; ci++) {
+    var entry = casePositions[ci];
+    var bodyStart = entry.end;
+    var bodyEnd = ci + 1 < casePositions.length ? casePositions[ci + 1].start : Math.min(bodyStart + 4000, html.length);
+    var caseBody = html.slice(bodyStart, bodyEnd);
+    var fn = null;
+    var pageM = /state\.page\s*=\s*['"]([a-zA-Z0-9-]+)['"]/.exec(caseBody);
+    if (pageM) {
+      fn = "render" + capitalize(pageM[1]) + "Page";
+    } else if (/navigateToEdit\s*\(/.test(caseBody)) {
+      fn = "renderEditPage";
+    } else {
+      var idM = /(?:return\s+)?([A-Za-z_]\w*)\s*\(/.exec(caseBody);
+      if (idM) fn = idM[1];
+    }
+    if (fn) stateToFunction[entry.name] = fn;
+  }
+
+  // Regex special-character escape (used inside RegExp source strings).
+  // Source must keep braces matched for the smoke-parser test; we
+  // build the char class with `new RegExp` and the brace constants.
+  var REGEX_SPECIAL_RE = new RegExp(
+    "[" + "\\.\\*\\+\\?\\^\\$" + OPEN_BRACE + CLOSE_BRACE + "\\(\\)\\|\\[\\]\\\\]",
+    "g"
+  );
+  function escapeRegExp(s) {
+    return String(s).replace(REGEX_SPECIAL_RE, "\\$&");
+  }
+
+  // Step B: extract a function's body slice using brace counting.
+  // We find the function-declaration start, locate the first opening
+  // brace after the signature, then scan forward counting open/close
+  // braces until depth returns to zero. Template-literal interpolations
+  // are also brace-balanced, so plain counting handles them. Comments
+  // and strings could in theory throw this off, but HiNAS-style render
+  // functions are predictable enough for v0.1.
+  function extractFunctionBody(fnName, source) {
+    var esc = escapeRegExp(fnName);
+    var headerRe = new RegExp(
+      "(?:function\\s+" + esc + "\\s*\\(|const\\s+" + esc + "\\s*=\\s*(?:async\\s+)?(?:function\\s*)?\\()",
+      ""
+    );
+    var hm = headerRe.exec(source);
+    if (!hm) return null;
+    // Find first open-brace after the header.
+    var openIdx = source.indexOf(OPEN_BRACE, hm.index + hm[0].length);
+    if (openIdx === -1) return null;
+    var depth = 0;
+    var i = openIdx;
+    while (i < source.length) {
+      var ch = source.charAt(i);
+      if (ch === OPEN_BRACE) depth++;
+      else if (ch === CLOSE_BRACE) {
+        depth--;
+        if (depth === 0) {
+          return source.slice(openIdx + 1, i);
+        }
+      }
+      i++;
+    }
+    return source.slice(openIdx + 1, Math.min(openIdx + 8000, source.length));
+  }
+
+  // Step C: walk a body string for elements with class signatures.
+  function walkBodyElements(body) {
+    if (!body) return [];
+    var els = [];
+    var SKIP_TAGS_BODY = { script: 1, style: 1, link: 1, meta: 1, head: 1, title: 1, br: 1, hr: 1, img: 1 };
+    var elRe = /<([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g;
+    var em;
+    while ((em = elRe.exec(body)) !== null) {
+      var tagB = em[1].toLowerCase();
+      if (SKIP_TAGS_BODY[tagB]) continue;
+      var attrsB = em[2] || "";
+      var clsM = /class\s*=\s*["']([^"']+)["']/.exec(attrsB);
+      if (!clsM) continue;
+      var sigB = computeSignature(tagB, clsM[1]);
+      if (!sigB) continue;
+      var afterIdx = em.index + em[0].length;
+      var nextLt = body.indexOf("<", afterIdx);
+      var snippet = body.slice(afterIdx, nextLt === -1 ? afterIdx + 80 : nextLt).trim().slice(0, 80);
+      els.push({ signature: sigB, tag: tagB, text: snippet });
+    }
+    return els;
+  }
+
+  Object.keys(stateToFunction).forEach(function (state) {
+    var fnName = stateToFunction[state];
+    var body = extractFunctionBody(fnName, html);
+    stateBodies[state] = body ? walkBodyElements(body) : [];
+  });
+
   return {
     states: states,
     modals: modals,
@@ -430,6 +564,7 @@ function parseHtml(html) {
     tabs: tabs,
     candidates: candidates,
     patterns: patternList,
+    stateBodies: stateBodies,
   };
 }
 
@@ -1079,8 +1214,10 @@ async function buildArtboards(payload) {
   // One artboard per entry is emitted in a "Matched elements" band
   // after the DS Candidates band below.
   var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
-  // Persisted pattern→DS-component mappings (H3): { signature → { componentKey, componentName, variantName } }
-  // The H4 "Pattern-mapped elements" band emits one artboard per mapped pattern.
+  // Persisted pattern→DS-component mappings (H3): signature →
+  // { componentKey, componentName, variantName }. Phase H4-refactor
+  // instantiates one DS instance per matching HTML element inside each
+  // content-state's dialog body (no separate showcase band).
   var patternMappings = (await figma.clientStorage.getAsync("patternMappings")) || {};
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
@@ -1347,6 +1484,67 @@ async function buildArtboards(payload) {
           if (dialogBodyContent) {
             for (var bi2 = 0; bi2 < dialogBodyContent.children.length; bi2++) {
               try { dialogBodyContent.children[bi2].visible = false; } catch (eVis2) {}
+            }
+          }
+
+          // Phase H4-refactor: populate the dialog body with mapped DS
+          // instances for every element in this state's HTML body that
+          // has a user-defined pattern mapping. Order mirrors HTML
+          // document order. Pixel-perfect layout is v0.2 scope; v0.1
+          // just gets the right components in the right state.
+          var stateName_h4 = spec.stateName;
+          var bodyEls_h4 = (parsed && parsed.stateBodies && parsed.stateBodies[stateName_h4]) || [];
+          if (bodyEls_h4.length > 0 && dialogBodyContent) {
+            // Best-effort: ensure dialog body is auto-layout vertical
+            // so appended instances flow. If already auto-layout, the
+            // initial assignment is a no-op (we don't change spacing).
+            try {
+              if (dialogBodyContent.layoutMode === "NONE") {
+                dialogBodyContent.layoutMode = "VERTICAL";
+                dialogBodyContent.primaryAxisSizingMode = "AUTO";
+                dialogBodyContent.counterAxisSizingMode = "FIXED";
+                dialogBodyContent.itemSpacing = 8;
+                dialogBodyContent.paddingTop = 16;
+                dialogBodyContent.paddingBottom = 16;
+                dialogBodyContent.paddingLeft = 16;
+                dialogBodyContent.paddingRight = 16;
+              }
+            } catch (eLayout) {
+              // dialog body may not support auto-layout in some master
+              // versions; instances will append at default positions.
+            }
+
+            for (var bi3 = 0; bi3 < bodyEls_h4.length; bi3++) {
+              if (_cancelRequested) break;
+              var el_h4 = bodyEls_h4[bi3];
+              var mapping_h4 = patternMappings[el_h4.signature];
+              if (!mapping_h4 || !mapping_h4.componentKey) continue;
+              try {
+                var elComp_h4 = await figma.importComponentByKeyAsync(mapping_h4.componentKey);
+                if (!elComp_h4) {
+                  warnings.push(stateName_h4 + ": failed to import " + (mapping_h4.componentName || mapping_h4.componentKey) + " for " + el_h4.signature);
+                  counts.warnings++;
+                  continue;
+                }
+                var elInst_h4 = elComp_h4.createInstance();
+                dialogBodyContent.appendChild(elInst_h4);
+                if (!elInst_h4.visible) {
+                  try { elInst_h4.visible = true; } catch (eVis_h4) {}
+                }
+                if (el_h4.text) {
+                  try {
+                    var textNodes_h4 = elInst_h4.findAll(function (n) { return n.type === "TEXT"; });
+                    if (textNodes_h4 && textNodes_h4.length > 0) {
+                      await figma.loadFontAsync(textNodes_h4[0].fontName);
+                      textNodes_h4[0].characters = el_h4.text.slice(0, 200);
+                    }
+                  } catch (eText_h4) { /* non-fatal */ }
+                }
+                counts.patterns = (counts.patterns || 0) + 1;
+              } catch (eImport_h4) {
+                warnings.push(stateName_h4 + ": " + (eImport_h4.message || String(eImport_h4)));
+                counts.warnings++;
+              }
             }
           }
         }
@@ -1769,127 +1967,6 @@ async function buildArtboards(payload) {
     }
   }
 
-  // ============================================================
-  // Pattern-mapped elements band (Phase H4)
-  // For each HTML pattern with a user-defined DS mapping, instantiate
-  // the matched component in a "Pattern" band. One artboard per
-  // pattern (not per instance) — the goal is to document the
-  // HTML→DS contract visually, not duplicate every element.
-  // ============================================================
-  var patternsFromParse = (parsed && parsed.patterns) || [];
-  var mappedPatterns = patternsFromParse.filter(function (p) {
-    return patternMappings[p.signature] && patternMappings[p.signature].componentKey;
-  });
-  var patternNodes = [];
-
-  if (mappedPatterns.length > 0) {
-    // Compute lowest Y used so far. Mirror the candidates-band approach:
-    // anchor below whichever prior band actually rendered.
-    var priorBandMaxY;
-    if (manualMatches.length > 0) {
-      // matchArtboardY + ceil(N / GRID_COLS) rows * GRID_STRIDE_Y
-      priorBandMaxY = matchArtboardY + Math.ceil(manualMatches.length / GRID_COLS) * GRID_STRIDE_Y;
-    } else if (candidatesWithImages.length > 0) {
-      var candRowCount2 = Math.ceil(candidatesWithImages.length / CAND_COLS);
-      priorBandMaxY = candidateOriginY + candRowCount2 * (CAND_H + CAND_GAP_Y);
-    } else {
-      // Nothing else rendered below candidates header — anchor below it.
-      priorBandMaxY = candidateBandY + 80;
-    }
-    var patternBandY = priorBandMaxY + 200;
-    patternBandY = Math.ceil(patternBandY / 1000) * 1000;
-
-    var patternHeader = figma.createText();
-    try {
-      await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-      patternHeader.fontName = { family: "Inter", style: "Regular" };
-    } catch (eFont) {}
-    patternHeader.fontSize = 32;
-    patternHeader.characters = "Pattern-mapped elements — HTML→DS contract";
-    patternHeader.x = BAND_X;
-    patternHeader.y = patternBandY;
-    targetPage.appendChild(patternHeader);
-    patternNodes.push(patternHeader);
-
-    var patternArtboardY = patternBandY + 80;
-
-    for (var pi = 0; pi < mappedPatterns.length; pi++) {
-      if (_cancelRequested) {
-        counts.patterns = pi;
-        figma.ui.postMessage({
-          type: "build-result",
-          ok: false,
-          cancelled: true,
-          counts: counts,
-        });
-        return;
-      }
-      // Yield to event loop so cancel messages can be processed
-      await new Promise(function (r) { setTimeout(r, 0); });
-
-      var pat = mappedPatterns[pi];
-      var patMapping = patternMappings[pat.signature];
-
-      var patArtboard = figma.createFrame();
-      patArtboard.name = "Pattern — " + pat.signature + " (×" + pat.count + ")";
-      patArtboard.fills = [];
-      patArtboard.clipsContent = true;
-      // Will resize after instance loads
-      patArtboard.resize(800, 200);
-      targetPage.appendChild(patArtboard);
-      patArtboard.x = BAND_X + (pi % GRID_COLS) * GRID_STRIDE_X;
-      patArtboard.y = patternArtboardY + Math.floor(pi / GRID_COLS) * GRID_STRIDE_Y;
-      patternNodes.push(patArtboard);
-
-      try {
-        var pComp = await figma.importComponentByKeyAsync(patMapping.componentKey);
-        if (!pComp) {
-          warnings.push("Pattern — " + pat.signature + ": importComponentByKeyAsync returned null. Mapping may be stale.");
-          counts.warnings++;
-          counts.patterns = pi + 1;
-          continue;
-        }
-        var pInst = pComp.createInstance();
-        patArtboard.appendChild(pInst);
-        try { pInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
-        if (!pInst.visible) {
-          try { pInst.visible = true; } catch (eVis) {}
-        }
-        // Resize artboard to component natural size + padding
-        var pPad = 60;
-        var pMinDim = 160;
-        var pAW = Math.max(pMinDim, pInst.width + pPad * 2);
-        var pAH = Math.max(pMinDim, pInst.height + pPad * 2);
-        patArtboard.resize(pAW, pAH);
-        pInst.x = Math.round((pAW - pInst.width) / 2);
-        pInst.y = Math.round((pAH - pInst.height) / 2);
-        // Apply text override from exampleText
-        if (pat.exampleText) {
-          var pTextNodes = pInst.findAll(function (n) { return n.type === "TEXT"; });
-          if (pTextNodes && pTextNodes.length > 0) {
-            try {
-              await figma.loadFontAsync(pTextNodes[0].fontName);
-              pTextNodes[0].characters = pat.exampleText.slice(0, 200);
-            } catch (eText) { /* non-fatal */ }
-          }
-        }
-      } catch (eImport) {
-        warnings.push("Pattern — " + pat.signature + ": " + (eImport.message || String(eImport)));
-        counts.warnings++;
-      }
-
-      counts.patterns = pi + 1;
-      figma.ui.postMessage({
-        type: "progress",
-        phase: "building",
-        index: pi,
-        total: mappedPatterns.length,
-        section: "patterns",
-        name: patArtboard.name,
-      });
-    }
-  }
-
   // 7. Save IDs of all created nodes so view-on-canvas can scroll
   // and zoom directly to them. Storing IDs (not coords) lets Figma
   // compute the correct viewport even if the user has manually moved
@@ -1898,7 +1975,6 @@ async function buildArtboards(payload) {
   for (var n = 0; n < createdNodes.length; n++) allNodeIds.push(createdNodes[n].id);
   for (var n2 = 0; n2 < candidateNodes.length; n2++) allNodeIds.push(candidateNodes[n2].id);
   for (var n3 = 0; n3 < matchedNodes.length; n3++) allNodeIds.push(matchedNodes[n3].id);
-  for (var n4 = 0; n4 < patternNodes.length; n4++) allNodeIds.push(patternNodes[n4].id);
   if (bandLabel && bandLabel.id) allNodeIds.push(bandLabel.id);
 
   await figma.clientStorage.setAsync("lastBuiltBand", {
