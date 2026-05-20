@@ -1495,62 +1495,99 @@ async function buildArtboards(payload) {
             }
           }
 
-          // Phase H4-refactor: populate the dialog body with mapped DS
-          // instances for every element in this state's HTML body that
-          // has a user-defined pattern mapping. Order mirrors HTML
-          // document order. Pixel-perfect layout is v0.2 scope; v0.1
-          // just gets the right components in the right state.
-          var stateName_h4 = spec.stateName;
-          var bodyEls_h4 = (parsed && parsed.stateBodies && parsed.stateBodies[stateName_h4]) || [];
-          if (bodyEls_h4.length > 0 && dialogBodyContent) {
-            // Best-effort: ensure dialog body is auto-layout vertical
-            // so appended instances flow. If already auto-layout, the
-            // initial assignment is a no-op (we don't change spacing).
-            try {
-              if (dialogBodyContent.layoutMode === "NONE") {
-                dialogBodyContent.layoutMode = "VERTICAL";
-                dialogBodyContent.primaryAxisSizingMode = "AUTO";
-                dialogBodyContent.counterAxisSizingMode = "FIXED";
-                dialogBodyContent.itemSpacing = 8;
-                dialogBodyContent.paddingTop = 16;
-                dialogBodyContent.paddingBottom = 16;
-                dialogBodyContent.paddingLeft = 16;
-                dialogBodyContent.paddingRight = 16;
+          // Phase H4-v2: populate dialog body with pattern-mapped DS instances
+          // using the per-state DOM capture from H8 (stored in _stateCaptures).
+          // Elements come with bounding boxes from the actual rendered DOM,
+          // so we can place them in approximate position rather than auto-layout
+          // stack. Pixel-perfect layout is v0.2+ (would need CSS-flexbox→Figma
+          // auto-layout translation).
+          var stateName_h4v2 = spec.stateName;
+          var stateCapture = null;
+          if (_stateCaptures && _stateCaptures.length > 0) {
+            for (var sc = 0; sc < _stateCaptures.length; sc++) {
+              if (_stateCaptures[sc].state === stateName_h4v2) {
+                stateCapture = _stateCaptures[sc];
+                break;
               }
-            } catch (eLayout) {
-              // dialog body may not support auto-layout in some master
-              // versions; instances will append at default positions.
             }
+          }
 
-            for (var bi3 = 0; bi3 < bodyEls_h4.length; bi3++) {
+          // Phase H4-v2: embed the captured state screenshot as the dialog
+          // body's background fill. Designer sees the COMPLETE rendered page;
+          // pattern-mapped DS components are overlaid on top at their
+          // bounding-box positions. Unmapped elements remain visually present
+          // via the screenshot — designer fills them in manually after build.
+          if (stateCapture && stateCapture.screenshot && stateCapture.screenshot.length > 0 && dialogBodyContent) {
+            try {
+              // Convert number[] back to Uint8Array for figma.createImage
+              var pngBytes = new Uint8Array(stateCapture.screenshot);
+              var img = figma.createImage(pngBytes);
+              dialogBodyContent.fills = [{
+                type: "IMAGE",
+                scaleMode: "FIT",
+                imageHash: img.hash,
+              }];
+            } catch (eImgFill) {
+              warnings.push(stateName_h4v2 + ": failed to embed screenshot — " + (eImgFill.message || String(eImgFill)));
+              counts.warnings++;
+            }
+          }
+
+          if (stateCapture && stateCapture.elements && stateCapture.elements.length > 0 && dialogBodyContent) {
+            // For positioning: scale captured bounding boxes to fit inside the
+            // dialog body. We use the CAPTURED viewport size (bodyWidth/Height)
+            // as the source dimensions.
+            var srcW = stateCapture.bodyWidth || 1200;
+            var srcH = stateCapture.bodyHeight || 800;
+            var dstW = dialogBodyContent.width || ARTBOARD_W;
+            var dstH = dialogBodyContent.height || ARTBOARD_H;
+            var scaleX = dstW / srcW;
+            var scaleY = dstH / srcH;
+            // Use the smaller scale to preserve aspect ratio
+            var scale = Math.min(scaleX, scaleY);
+
+            // Find every element with a pattern mapping
+            for (var ei = 0; ei < stateCapture.elements.length; ei++) {
               if (_cancelRequested) break;
-              var el_h4 = bodyEls_h4[bi3];
-              var mapping_h4 = patternMappings[el_h4.signature];
-              if (!mapping_h4 || !mapping_h4.componentKey) continue;
+              var el = stateCapture.elements[ei];
+              var mapping = patternMappings[el.signature];
+              if (!mapping || !mapping.componentKey) continue;
+
               try {
-                var elComp_h4 = await figma.importComponentByKeyAsync(mapping_h4.componentKey);
-                if (!elComp_h4) {
-                  warnings.push(stateName_h4 + ": failed to import " + (mapping_h4.componentName || mapping_h4.componentKey) + " for " + el_h4.signature);
+                var elComp = await figma.importComponentByKeyAsync(mapping.componentKey);
+                if (!elComp) {
+                  warnings.push(stateName_h4v2 + ": failed to import " + (mapping.componentName || mapping.componentKey) + " for " + el.signature);
                   counts.warnings++;
                   continue;
                 }
-                var elInst_h4 = elComp_h4.createInstance();
-                dialogBodyContent.appendChild(elInst_h4);
-                if (!elInst_h4.visible) {
-                  try { elInst_h4.visible = true; } catch (eVis_h4) {}
+                var elInst = elComp.createInstance();
+                dialogBodyContent.appendChild(elInst);
+                if (!elInst.visible) {
+                  try { elInst.visible = true; } catch (eVis) {}
                 }
-                if (el_h4.text) {
+                // Position relative to dialog body using scaled bounding box.
+                // The captured x/y are in iframe viewport coords; the dialog
+                // body's content area starts at (0, 0) in its local space.
+                try { elInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
+                var localX = Math.round(el.x * scale);
+                var localY = Math.round(el.y * scale);
+                elInst.x = localX;
+                elInst.y = localY;
+
+                // Apply text override from captured text content
+                if (el.text) {
                   try {
-                    var textNodes_h4 = elInst_h4.findAll(function (n) { return n.type === "TEXT"; });
-                    if (textNodes_h4 && textNodes_h4.length > 0) {
-                      await figma.loadFontAsync(textNodes_h4[0].fontName);
-                      textNodes_h4[0].characters = el_h4.text.slice(0, 200);
+                    var textNodes = elInst.findAll(function (n) { return n.type === "TEXT"; });
+                    if (textNodes && textNodes.length > 0) {
+                      await figma.loadFontAsync(textNodes[0].fontName);
+                      textNodes[0].characters = el.text.slice(0, 200);
                     }
-                  } catch (eText_h4) { /* non-fatal */ }
+                  } catch (eText) {}
                 }
+
                 counts.patterns = (counts.patterns || 0) + 1;
-              } catch (eImport_h4) {
-                warnings.push(stateName_h4 + ": " + (eImport_h4.message || String(eImport_h4)));
+              } catch (eImport) {
+                warnings.push(stateName_h4v2 + ": " + (eImport.message || String(eImport)));
                 counts.warnings++;
               }
             }
