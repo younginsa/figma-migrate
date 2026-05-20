@@ -3940,6 +3940,231 @@
         // Make it findable by Screen M's match handler (which uses window.onManualMatchDsPicked).
         window.onManualMatchDsPicked = onManualMatchDsPicked;
 
+        // ============================================================
+        // Per-state DOM capture (Phase H8)
+        // Renders user HTML in a hidden iframe, steps through each state
+        // via the dev-panel switcher, captures DOM bounding boxes + a
+        // screenshot for each. Output goes to code.js for build pipeline.
+        // ============================================================
+
+        var captureIframe = document.getElementById("captureIframe");
+        var lastStateCaptures = null;
+
+        function waitForFrames(n) {
+          return new Promise(function (resolve) {
+            function tick(i) {
+              if (i >= n) return resolve();
+              requestAnimationFrame(function () { tick(i + 1); });
+            }
+            tick(0);
+          });
+        }
+
+        function findDevPanelButton(doc, stateName) {
+          // Strategy 1: data-dev attribute
+          var byData = doc.querySelector('[data-dev="' + stateName + '"]');
+          if (byData) return byData;
+          // Strategy 2: button class containing "dev-panel" or similar, text match
+          var allButtons = doc.querySelectorAll("button");
+          for (var i = 0; i < allButtons.length; i++) {
+            var btn = allButtons[i];
+            var cls = String(btn.className || "");
+            if (!/dev[-_]?panel/i.test(cls)) continue;
+            var txt = String(btn.textContent || "").trim().toLowerCase();
+            if (txt === stateName.toLowerCase()) return btn;
+            if (txt.indexOf(stateName.toLowerCase()) !== -1) return btn;
+          }
+          // Strategy 3: any button with matching text
+          for (var j = 0; j < allButtons.length; j++) {
+            var t = String(allButtons[j].textContent || "").trim().toLowerCase();
+            if (t === stateName.toLowerCase()) return allButtons[j];
+          }
+          return null;
+        }
+
+        function walkDomForElements(doc) {
+          var SKIP = { SCRIPT: 1, STYLE: 1, LINK: 1, META: 1, HEAD: 1, TITLE: 1, BR: 1, HR: 1, IMG: 1 };
+          var els = [];
+          var all = doc.body ? doc.body.querySelectorAll("*") : [];
+          for (var i = 0; i < all.length; i++) {
+            var el = all[i];
+            if (SKIP[el.tagName]) continue;
+            var cls = el.getAttribute && el.getAttribute("class");
+            if (!cls) continue;
+            // Compute signature: tag + sorted alphabetical classes
+            var classes = cls.split(/\s+/).filter(Boolean);
+            if (classes.length === 0) continue;
+            classes.sort();
+            var sig = el.tagName.toLowerCase() + "." + classes.join(".");
+            var rect = el.getBoundingClientRect();
+            // Skip elements with 0 size (hidden by display: none style)
+            if (rect.width === 0 && rect.height === 0) continue;
+            var text = (el.textContent || "").trim().slice(0, 200);
+            els.push({
+              signature: sig,
+              tag: el.tagName.toLowerCase(),
+              classes: classes,
+              text: text,
+              x: Math.round(rect.left),
+              y: Math.round(rect.top),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+            });
+          }
+          return els;
+        }
+
+        async function captureStateScreenshot(doc) {
+          // html2canvas is already loaded on the page per the picker overlay.
+          // If not present, return null gracefully.
+          if (typeof html2canvas !== "function") return null;
+          try {
+            var canvas = await html2canvas(doc.body, {
+              backgroundColor: null,
+              logging: false,
+              width: doc.body.scrollWidth || 1200,
+              height: doc.body.scrollHeight || 800,
+            });
+            // Convert canvas to PNG bytes (Uint8Array) for Figma's createImage
+            return await new Promise(function (resolve) {
+              canvas.toBlob(function (blob) {
+                if (!blob) return resolve(null);
+                var reader = new FileReader();
+                reader.onload = function () {
+                  var bytes = new Uint8Array(reader.result);
+                  resolve(bytes);
+                };
+                reader.onerror = function () { resolve(null); };
+                reader.readAsArrayBuffer(blob);
+              }, "image/png");
+            });
+          } catch (e) {
+            console.warn("html2canvas failed:", e);
+            return null;
+          }
+        }
+
+        async function captureAllStates(htmlSource, stateNames) {
+          if (!captureIframe || !stateNames || stateNames.length === 0) {
+            return [];
+          }
+
+          // Load the HTML into the hidden iframe
+          await new Promise(function (resolve) {
+            captureIframe.onload = function () { resolve(); };
+            captureIframe.srcdoc = htmlSource;
+          });
+          // Let JS settle
+          await waitForFrames(3);
+
+          var captures = [];
+          var doc = captureIframe.contentDocument;
+          if (!doc || !doc.body) {
+            console.warn("Capture iframe has no document/body");
+            return captures;
+          }
+
+          for (var si = 0; si < stateNames.length; si++) {
+            var stateName = stateNames[si];
+            var btn = findDevPanelButton(doc, stateName);
+            if (btn) {
+              try { btn.click(); } catch (eClick) {}
+              // Wait for re-render
+              await waitForFrames(3);
+            } // else: keep current DOM, capture it anyway as a best-effort
+
+            var elements = walkDomForElements(doc);
+            var screenshot = await captureStateScreenshot(doc);
+
+            captures.push({
+              state: stateName,
+              elements: elements,
+              screenshot: screenshot, // Uint8Array or null
+              bodyWidth: doc.body.scrollWidth || 1200,
+              bodyHeight: doc.body.scrollHeight || 800,
+            });
+
+            // Yield to UI between states so we don't lock up
+            await waitForFrames(1);
+          }
+
+          return captures;
+        }
+
+        async function runStateCaptures(htmlSource, parsedStates) {
+          try {
+            var captures = await captureAllStates(htmlSource, parsedStates || []);
+            lastStateCaptures = captures;
+
+            // Send to code.js
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "state-captures",
+                  captures: captures.map(function (c) {
+                    return {
+                      state: c.state,
+                      elements: c.elements,
+                      screenshot: c.screenshot ? Array.from(c.screenshot) : null, // serialize Uint8Array
+                      bodyWidth: c.bodyWidth,
+                      bodyHeight: c.bodyHeight,
+                    };
+                  }),
+                },
+              },
+              "*"
+            );
+
+            // Surface debug info on Screen 03 so user can verify
+            showCaptureDebug(captures);
+          } catch (e) {
+            console.error("State capture failed:", e);
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "state-captures",
+                  captures: [],
+                  error: e.message || String(e),
+                },
+              },
+              "*"
+            );
+          }
+        }
+
+        function showCaptureDebug(captures) {
+          // Tiny debug surface on Screen 03 for H8 verification.
+          // Will be removed/refined in later tasks.
+          var allCells = document.querySelectorAll(".strip__cell");
+          var s03 = allCells[2];
+          if (!s03) return;
+          var existing = s03.querySelector("#stateCaptureDebug");
+          if (existing) existing.remove();
+          var debug = document.createElement("div");
+          debug.id = "stateCaptureDebug";
+          debug.style.cssText = "margin: 8px 0; padding: 8px 12px; background: rgba(19,121,243,0.06); border-left: 3px solid var(--primary); font-size: 11px; color: var(--text-secondary); border-radius: 3px;";
+          var summary = document.createElement("strong");
+          summary.style.color = "var(--text-primary)";
+          summary.textContent = "Per-state capture: ";
+          debug.appendChild(summary);
+          var detail = document.createElement("span");
+          if (captures.length === 0) {
+            detail.textContent = "no states captured";
+          } else {
+            var parts = [];
+            var withShot = 0;
+            for (var i = 0; i < captures.length; i++) {
+              parts.push(captures[i].state + " (" + captures[i].elements.length + " elts)");
+              if (captures[i].screenshot) withShot++;
+            }
+            detail.textContent = captures.length + " states captured: " + parts.join(", ") + ". Screenshots: " + withShot + "/" + captures.length + ".";
+          }
+          debug.appendChild(detail);
+          // Insert at top of panel body
+          var body = s03.querySelector(".panel__body");
+          if (body) body.insertBefore(debug, body.firstChild);
+        }
+
         // ---- Populate Screen 02 (Parse preview) with parsed data ----
         function renderDsSync(sync) {
           var banner = document.getElementById("dsSyncBanner");
@@ -4869,6 +5094,13 @@
               populateParseResults(msg.data || {});
               renderCandidates((msg.data && msg.data.candidates) || []);
               renderHtmlPatterns((msg.data && msg.data.patterns) || []);
+              // Phase H8: kick off per-state DOM capture in the hidden iframe.
+              // Non-blocking; runs in parallel with user reviewing Screen 02.
+              var statesToCapture = (msg.data && msg.data.states) || [];
+              var htmlSource = (typeof htmlInput !== "undefined" && htmlInput && htmlInput.value) ? htmlInput.value : "";
+              if (statesToCapture.length > 0 && htmlSource) {
+                runStateCaptures(htmlSource, statesToCapture);
+              }
               // Populate Screen 03's mapping dropdowns with the auto-suggested
               // variants. User reviews + adjusts before clicking Build.
               if (msg.variantSuggestions && msg.variantLists) {
@@ -5291,5 +5523,11 @@
       <iframe class="picker-overlay__iframe" id="pickerIframe" sandbox="allow-same-origin allow-scripts"></iframe>
     </div>
   </div>
+
+  <!-- Per-state capture iframe (Phase H8). Hidden; loads the user's HTML
+       and steps through each parsed state to capture screenshots + DOM
+       bounding boxes. Never user-visible. -->
+  <iframe id="captureIframe" sandbox="allow-same-origin allow-scripts"
+          style="position: absolute; width: 1200px; height: 800px; left: -10000px; top: -10000px; visibility: hidden; border: 0;"></iframe>
 </body>
 </html>

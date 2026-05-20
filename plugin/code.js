@@ -591,6 +591,14 @@ function parseHtml(html) {
 // the build emits build-result.cancelled and returns immediately.
 var _cancelRequested = false;
 
+// Per-state DOM captures (Phase H8). Populated by the UI's `state-captures`
+// message after parse-html succeeds. Each entry has the form
+// {state, elements, screenshot: number[]|null, bodyWidth, bodyHeight}.
+// Stored in module memory (NOT clientStorage) because screenshots can be
+// multiple MB each; N states would blow the 5MB clientStorage cap.
+// Build pipeline (Task H4-v2, later) reads from this.
+var _stateCaptures = [];
+
 // DS component keys (mirrors .claude/ds-manifest.json + runbook).
 // Hard-coded for v0.1 per spec §4.6 ("Multi-DS support" is v0.4).
 var DS_KEYS = {
@@ -2409,6 +2417,17 @@ figma.ui.onmessage = async (msg) => {
       var w = typeof msg.width === "number" && msg.width > 0 ? msg.width : 380;
       var h = typeof msg.height === "number" && msg.height > 0 ? msg.height : 800;
       figma.ui.resize(w, h);
+      break;
+    }
+
+    case "state-captures": {
+      // Store the per-state captures in module-level memory for the build
+      // pipeline to consume. NOT in clientStorage — screenshots can be
+      // multiple MB each; storing N states would blow the 5MB cap.
+      _stateCaptures = msg.captures || [];
+      if (msg.error) {
+        console.warn("State capture error:", msg.error);
+      }
       break;
     }
 
