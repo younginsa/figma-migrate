@@ -3646,11 +3646,17 @@
           if (!list) return;
           list.innerHTML = "";
           var f = (filter || "").toLowerCase().trim();
+          // Variants are now {name, id, key} objects (post node-ID upgrade).
+          // Support legacy bare-string shape for any pre-upgrade callers.
+          function variantLabel(v) {
+            if (v && typeof v === "object") return v.name || "";
+            return String(v || "");
+          }
           var visible = components.filter(function (c) {
             if (!f) return true;
             if ((c.name || "").toLowerCase().indexOf(f) !== -1) return true;
             if ((c.variants || []).some(function (v) {
-              return (v || "").toLowerCase().indexOf(f) !== -1;
+              return variantLabel(v).toLowerCase().indexOf(f) !== -1;
             })) return true;
             return false;
           });
@@ -3680,7 +3686,11 @@
               var allItems = list.querySelectorAll(".library-components__item");
               for (var i = 0; i < allItems.length; i++) allItems[i].classList.remove("is-selected");
               item.classList.add("is-selected");
-              screenMSelectedComponent = { componentKey: c.key, componentName: c.name };
+              screenMSelectedComponent = {
+                componentKey: c.key,
+                componentId: c.id, // node-ID enables local-component resolve
+                componentName: c.name,
+              };
               var matchBtn = document.getElementById("screenMMatch");
               if (matchBtn) matchBtn.disabled = false;
             });
@@ -3715,6 +3725,7 @@
                     type: "register-pattern-mapping",
                     signature: screenMCurrentCandidate, // signature passed in as candidateName
                     componentKey: screenMSelectedComponent.componentKey,
+                    componentId: screenMSelectedComponent.componentId || null,
                     componentName: screenMSelectedComponent.componentName,
                   },
                 },
@@ -3729,6 +3740,7 @@
                     type: "register-candidate-mapping",
                     candidateName: screenMCurrentCandidate,
                     componentKey: screenMSelectedComponent.componentKey,
+                    componentId: screenMSelectedComponent.componentId || null,
                     componentName: screenMSelectedComponent.componentName,
                   },
                 },
@@ -3918,6 +3930,7 @@
                   htmlSelector: manualHtmlSelection.selector,
                   htmlText: manualHtmlSelection.text,
                   componentKey: manualDsSelection.componentKey,
+                  componentId: manualDsSelection.componentId || null,
                   componentName: manualDsSelection.componentName,
                 },
               },
@@ -3932,6 +3945,7 @@
         function onManualMatchDsPicked(component) {
           manualDsSelection = {
             componentKey: component.componentKey,
+            componentId: component.componentId || null,
             componentName: component.componentName,
             parentName: null,
           };
@@ -5451,6 +5465,7 @@
             if (msg.component) {
               manualDsSelection = {
                 componentKey: msg.component.key,
+                componentId: msg.component.id || null,
                 componentName: msg.component.name,
                 parentName: msg.component.parentName,
               };

@@ -43,6 +43,7 @@ function _postSelectionUpdate() {
       type: "selection-update",
       component: {
         key: keyNode.key,
+        id: keyNode.id, // file-local id — primary lookup for resolveDsComponent
         name: keyNode.name,
         parentName: keyNode.parent ? keyNode.parent.name : null,
       },
@@ -50,6 +51,19 @@ function _postSelectionUpdate() {
   } else {
     figma.ui.postMessage({ type: "selection-update", component: null });
   }
+}
+
+// ============================================================
+// Storage scoping — keep per-file state isolated.
+// ============================================================
+// Scope a clientStorage key by the current Figma file, so mappings
+// from one DS file don't bleed into another. figma.fileKey is the
+// stable file identifier. When fileKey is unavailable (older API
+// fallbacks), bucket into a shared "no-file" namespace so reads
+// don't silently miss writes.
+function fileScoped(key) {
+  var fid = figma.fileKey || "no-file";
+  return "f__" + fid + "__" + key;
 }
 
 // ============================================================
@@ -89,11 +103,16 @@ async function dsSync() {
       components.push({
         name: node.name,
         key: node.key,
+        id: node.id, // file-local stable identifier (works for local + library)
         type: node.type,
         variants:
           node.type === "COMPONENT_SET" && node.children
             ? node.children.map(function (c) {
-                return c.name;
+                return {
+                  name: c.name,
+                  id: c.id,
+                  key: c.key,
+                };
               })
             : [],
       });
@@ -115,7 +134,7 @@ async function dsSync() {
     components: components,
     timestamp: new Date().toISOString(),
   };
-  await figma.clientStorage.setAsync("dsComponents", current);
+  await figma.clientStorage.setAsync(fileScoped("dsComponents"), current);
 
   return {
     ok: true,
@@ -137,17 +156,80 @@ function manifestsEqual(a, b) {
   for (var i = 0; i < bComps.length; i++) {
     byName[bComps[i].name] = bComps[i];
   }
+  // Normalize a variants entry to a comparable string. Variants used to be
+  // bare names ("size=lg"); after the node-ID upgrade they're {name, id, key}.
+  // Support both shapes so a stale manifest doesn't trigger a spurious diff.
+  function variantKey(v) {
+    if (v && typeof v === "object") return v.name || "";
+    return String(v || "");
+  }
   for (var j = 0; j < aComps.length; j++) {
     var match = byName[aComps[j].name];
     if (!match) return false;
-    var av = (aComps[j].variants || []).slice().sort();
-    var bv = (match.variants || []).slice().sort();
+    var av = (aComps[j].variants || []).map(variantKey).sort();
+    var bv = (match.variants || []).map(variantKey).sort();
     if (av.length !== bv.length) return false;
     for (var k = 0; k < av.length; k++) {
       if (av[k] !== bv[k]) return false;
     }
   }
   return true;
+}
+
+// ============================================================
+// Resolve a user-mapped DS component using a 3-tier strategy:
+//   1) figma.getNodeByIdAsync(id) — works for any local node, fast
+//   2) importComponentByKeyAsync(key) — works for published library
+//      components; fails with 404 on local-only components
+//   3) Walk the in-file "Design system" page by name — last-ditch
+//      fallback robust against ID/key drift across DS edits
+// Returns the component node or null.
+// ============================================================
+async function resolveDsComponent(mapping) {
+  if (!mapping) return null;
+  // 1) Try by ID (local components, instant lookup)
+  if (mapping.componentId) {
+    try {
+      var byId = await figma.getNodeByIdAsync(mapping.componentId);
+      if (byId && (byId.type === "COMPONENT" || byId.type === "COMPONENT_SET")) {
+        return byId;
+      }
+    } catch (eId) { /* fall through */ }
+  }
+  // 2) Try by key (published library components)
+  if (mapping.componentKey) {
+    try {
+      var byKey = await figma.importComponentByKeyAsync(mapping.componentKey);
+      if (byKey) return byKey;
+    } catch (eKey) { /* fall through */ }
+  }
+  // 3) Last-ditch: scan the in-file Design system page for a name match
+  if (mapping.componentName) {
+    try {
+      var pages = figma.root.children;
+      for (var pi = 0; pi < pages.length; pi++) {
+        if (pages[pi].name === "Design system") {
+          var dsPage = pages[pi];
+          var found = null;
+          function walk(n) {
+            if (found) return;
+            if (n.type === "COMPONENT" || n.type === "COMPONENT_SET") {
+              if (n.name === mapping.componentName) {
+                found = n;
+                return;
+              }
+            }
+            if ("children" in n && n.children) {
+              for (var k = 0; k < n.children.length; k++) walk(n.children[k]);
+            }
+          }
+          walk(dsPage);
+          if (found) return found;
+        }
+      }
+    } catch (eName) { /* fall through */ }
+  }
+  return null;
 }
 
 // ============================================================
@@ -1216,17 +1298,17 @@ async function buildArtboards(payload) {
   // per-candidate "Pick DS component" flow in Screen M). Used in the
   // DS Candidates band loop below to instantiate the real DS component
   // instead of the placeholder screenshot frame.
-  var candidateMappings = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+  var candidateMappings = (await figma.clientStorage.getAsync(fileScoped("candidateMappings"))) || {};
   // Persisted manual rescue matches (E4): array of
   //   { name, componentKey, componentName, htmlText }
   // One artboard per entry is emitted in a "Matched elements" band
   // after the DS Candidates band below.
-  var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+  var manualMatches = (await figma.clientStorage.getAsync(fileScoped("manualMatches"))) || [];
   // Persisted pattern→DS-component mappings (H3): signature →
   // { componentKey, componentName, variantName }. Phase H4-refactor
   // instantiates one DS instance per matching HTML element inside each
   // content-state's dialog body (no separate showcase band).
-  var patternMappings = (await figma.clientStorage.getAsync("patternMappings")) || {};
+  var patternMappings = (await figma.clientStorage.getAsync(fileScoped("patternMappings"))) || {};
   var parsed = (payload && payload.parsed) || {};
   var filename = (payload && payload.filename) || "";
   var states = parsed.states || [];
@@ -1246,7 +1328,7 @@ async function buildArtboards(payload) {
 
   // 1. Resolve target page
   var targetName =
-    (await figma.clientStorage.getAsync("targetPageName")) || "Claude output";
+    (await figma.clientStorage.getAsync(fileScoped("targetPageName"))) || "Claude output";
   var targetPage = null;
   for (var p = 0; p < figma.root.children.length; p++) {
     if (figma.root.children[p].name === targetName) {
@@ -1554,9 +1636,9 @@ async function buildArtboards(payload) {
               if (!mapping || !mapping.componentKey) continue;
 
               try {
-                var elComp = await figma.importComponentByKeyAsync(mapping.componentKey);
+                var elComp = await resolveDsComponent(mapping);
                 if (!elComp) {
-                  warnings.push(stateName_h4v2 + ": failed to import " + (mapping.componentName || mapping.componentKey) + " for " + el.signature);
+                  warnings.push(stateName_h4v2 + ": could not resolve " + (mapping.componentName || mapping.componentKey || "component") + " for " + el.signature + " (tried id/key/name)");
                   counts.warnings++;
                   continue;
                 }
@@ -1812,9 +1894,9 @@ async function buildArtboards(payload) {
     // the real component instead of the placeholder screenshot frame.
     var mapping = candidateMappings[ca.name];
     var instanceCreated = false;
-    if (mapping && mapping.componentKey) {
+    if (mapping && (mapping.componentKey || mapping.componentId)) {
       try {
-        var comp = await figma.importComponentByKeyAsync(mapping.componentKey);
+        var comp = await resolveDsComponent(mapping);
         if (comp) {
           var inst = comp.createInstance();
           inst.name = "DS Candidate — " + ca.name;
@@ -1932,19 +2014,19 @@ async function buildArtboards(payload) {
       matchArtboard.y = matchArtboardY + Math.floor(mi / GRID_COLS) * GRID_STRIDE_Y;
       matchedNodes.push(matchArtboard);
 
-      // Defensive: skip entries with no componentKey (shouldn't happen
-      // after the screenNComplete guard, but protects against legacy
-      // entries persisted before the guard was added).
-      if (!match.componentKey) {
-        warnings.push("Match — " + (match.componentName || "(unnamed)") + ": componentKey is missing; the DS picker did not capture a valid component. Re-add the match via Screen N.");
+      // Defensive: skip entries with no componentKey AND no componentId
+      // (shouldn't happen after the screenNComplete guard, but protects
+      // against legacy entries persisted before the guard was added).
+      if (!match.componentKey && !match.componentId) {
+        warnings.push("Match — " + (match.componentName || "(unnamed)") + ": componentKey/id missing; the DS picker did not capture a valid component. Re-add the match via Screen N.");
         counts.warnings++;
         counts.manualMatches = mi + 1;
         continue;
       }
       try {
-        var matchComp = await figma.importComponentByKeyAsync(match.componentKey);
+        var matchComp = await resolveDsComponent(match);
         if (!matchComp) {
-          warnings.push("Match — " + match.componentName + ": importComponentByKeyAsync returned null. The component may have been deleted from the library, or the key is stale.");
+          warnings.push("Match — " + match.componentName + ": could not resolve via id/key/name. The component may have been deleted, renamed, or its key is stale.");
           counts.warnings++;
           counts.manualMatches = mi + 1;
           continue; // skip this match entirely — no instance to create
@@ -2022,7 +2104,7 @@ async function buildArtboards(payload) {
   for (var n3 = 0; n3 < matchedNodes.length; n3++) allNodeIds.push(matchedNodes[n3].id);
   if (bandLabel && bandLabel.id) allNodeIds.push(bandLabel.id);
 
-  await figma.clientStorage.setAsync("lastBuiltBand", {
+  await figma.clientStorage.setAsync(fileScoped("lastBuiltBand"), {
     pageName: targetName,
     nodeIds: allNodeIds,
     timestamp: new Date().toISOString(),
@@ -2095,7 +2177,7 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-ds-components": {
       try {
-        var stored = await figma.clientStorage.getAsync("dsComponents");
+        var stored = await figma.clientStorage.getAsync(fileScoped("dsComponents"));
         if (!stored || !stored.components) {
           figma.ui.postMessage({
             type: "ds-components-list",
@@ -2121,13 +2203,15 @@ figma.ui.onmessage = async (msg) => {
 
     case "register-candidate-mapping": {
       try {
-        var existing = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        var existing = (await figma.clientStorage.getAsync(fileScoped("candidateMappings"))) || {};
         existing[msg.candidateName] = {
           componentKey: msg.componentKey,
+          componentId: msg.componentId || null,
           componentName: msg.componentName,
           variantName: msg.variantName || null,
+          variantId: msg.variantId || null,
         };
-        await figma.clientStorage.setAsync("candidateMappings", existing);
+        await figma.clientStorage.setAsync(fileScoped("candidateMappings"), existing);
         figma.ui.postMessage({
           type: "mapping-set",
           candidateName: msg.candidateName,
@@ -2144,7 +2228,7 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-candidate-mappings": {
       try {
-        var existingMappings = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        var existingMappings = (await figma.clientStorage.getAsync(fileScoped("candidateMappings"))) || {};
         figma.ui.postMessage({
           type: "candidate-mappings-list",
           mappings: existingMappings,
@@ -2161,9 +2245,9 @@ figma.ui.onmessage = async (msg) => {
 
     case "remove-candidate-mapping": {
       try {
-        var existingForRemove = (await figma.clientStorage.getAsync("candidateMappings")) || {};
+        var existingForRemove = (await figma.clientStorage.getAsync(fileScoped("candidateMappings"))) || {};
         delete existingForRemove[msg.candidateName];
-        await figma.clientStorage.setAsync("candidateMappings", existingForRemove);
+        await figma.clientStorage.setAsync(fileScoped("candidateMappings"), existingForRemove);
         figma.ui.postMessage({
           type: "mapping-removed",
           candidateName: msg.candidateName,
@@ -2179,14 +2263,16 @@ figma.ui.onmessage = async (msg) => {
 
     case "register-pattern-mapping": {
       try {
-        var existingPatternMappings = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        var existingPatternMappings = (await figma.clientStorage.getAsync(fileScoped("patternMappings"))) || {};
         existingPatternMappings[msg.signature] = {
           componentKey: msg.componentKey,
+          componentId: msg.componentId || null,
           componentName: msg.componentName,
           variantName: msg.variantName || null,
+          variantId: msg.variantId || null,
           // Phase H5 will add: wrapperConsumesChildren: false (default)
         };
-        await figma.clientStorage.setAsync("patternMappings", existingPatternMappings);
+        await figma.clientStorage.setAsync(fileScoped("patternMappings"), existingPatternMappings);
         figma.ui.postMessage({
           type: "pattern-mapping-set",
           signature: msg.signature,
@@ -2203,7 +2289,7 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-pattern-mappings": {
       try {
-        var patternMappingsList = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        var patternMappingsList = (await figma.clientStorage.getAsync(fileScoped("patternMappings"))) || {};
         figma.ui.postMessage({
           type: "pattern-mappings-list",
           mappings: patternMappingsList,
@@ -2220,9 +2306,9 @@ figma.ui.onmessage = async (msg) => {
 
     case "remove-pattern-mapping": {
       try {
-        var existingPatternForRemove = (await figma.clientStorage.getAsync("patternMappings")) || {};
+        var existingPatternForRemove = (await figma.clientStorage.getAsync(fileScoped("patternMappings"))) || {};
         delete existingPatternForRemove[msg.signature];
-        await figma.clientStorage.setAsync("patternMappings", existingPatternForRemove);
+        await figma.clientStorage.setAsync(fileScoped("patternMappings"), existingPatternForRemove);
         figma.ui.postMessage({
           type: "pattern-mapping-removed",
           signature: msg.signature,
@@ -2265,7 +2351,7 @@ figma.ui.onmessage = async (msg) => {
           });
           break;
         }
-        var matches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        var matches = (await figma.clientStorage.getAsync(fileScoped("manualMatches"))) || [];
         if (matches.length >= 50) {
           figma.ui.postMessage({
             type: "match-set",
@@ -2277,11 +2363,13 @@ figma.ui.onmessage = async (msg) => {
           htmlSelector: msg.htmlSelector,
           htmlText: msg.htmlText || "",
           componentKey: msg.componentKey,
+          componentId: msg.componentId || null,
           componentName: msg.componentName,
           variantName: msg.variantName || null,
+          variantId: msg.variantId || null,
           capturedAt: new Date().toISOString(),
         });
-        await figma.clientStorage.setAsync("manualMatches", matches);
+        await figma.clientStorage.setAsync(fileScoped("manualMatches"), matches);
         figma.ui.postMessage({
           type: "match-set",
           index: matches.length - 1,
@@ -2298,7 +2386,7 @@ figma.ui.onmessage = async (msg) => {
 
     case "list-manual-matches": {
       try {
-        var manualMatches = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        var manualMatches = (await figma.clientStorage.getAsync(fileScoped("manualMatches"))) || [];
         figma.ui.postMessage({ type: "manual-matches-list", matches: manualMatches });
       } catch (e) {
         figma.ui.postMessage({
@@ -2312,10 +2400,10 @@ figma.ui.onmessage = async (msg) => {
 
     case "remove-manual-match": {
       try {
-        var matchesForRemove = (await figma.clientStorage.getAsync("manualMatches")) || [];
+        var matchesForRemove = (await figma.clientStorage.getAsync(fileScoped("manualMatches"))) || [];
         if (typeof msg.index === "number" && msg.index >= 0 && msg.index < matchesForRemove.length) {
           matchesForRemove.splice(msg.index, 1);
-          await figma.clientStorage.setAsync("manualMatches", matchesForRemove);
+          await figma.clientStorage.setAsync(fileScoped("manualMatches"), matchesForRemove);
         }
         figma.ui.postMessage({ type: "manual-matches-list", matches: matchesForRemove });
       } catch (e) {
@@ -2354,10 +2442,10 @@ figma.ui.onmessage = async (msg) => {
       // build, so we can resolve them and use scrollAndZoomIntoView
       // for an automatic fit. Falls back to a page-jump if the
       // saved IDs are missing or stale.
-      const lastBand = await figma.clientStorage.getAsync("lastBuiltBand");
+      const lastBand = await figma.clientStorage.getAsync(fileScoped("lastBuiltBand"));
       const pageName =
         (lastBand && lastBand.pageName) ||
-        (await figma.clientStorage.getAsync("targetPageName")) ||
+        (await figma.clientStorage.getAsync(fileScoped("targetPageName"))) ||
         "Claude output";
       const targetPage = figma.root.children.find((p) => p.name === pageName);
       if (!targetPage) break;
@@ -2390,7 +2478,7 @@ figma.ui.onmessage = async (msg) => {
         name: p.name,
         id: p.id,
       }));
-      let currentTarget = await figma.clientStorage.getAsync("targetPageName");
+      let currentTarget = await figma.clientStorage.getAsync(fileScoped("targetPageName"));
       // If the persisted target no longer exists in the file (e.g., the user
       // deleted it in Figma), treat it as missing so we fall back to a default.
       // Otherwise the dropdown label keeps showing a phantom page that isn't
@@ -2408,7 +2496,7 @@ figma.ui.onmessage = async (msg) => {
           currentTarget = null;
         }
         // Persist the corrected target so subsequent reads stay consistent.
-        await figma.clientStorage.setAsync("targetPageName", currentTarget);
+        await figma.clientStorage.setAsync(fileScoped("targetPageName"), currentTarget);
       }
       figma.ui.postMessage({
         type: "pages-list",
@@ -2420,7 +2508,7 @@ figma.ui.onmessage = async (msg) => {
 
     case "set-target-page": {
       // Persist the user's target page choice so it survives plugin restarts.
-      await figma.clientStorage.setAsync("targetPageName", msg.pageName);
+      await figma.clientStorage.setAsync(fileScoped("targetPageName"), msg.pageName);
       figma.ui.postMessage({
         type: "target-set",
         pageName: msg.pageName,
@@ -2433,7 +2521,7 @@ figma.ui.onmessage = async (msg) => {
       // figma.createPage() must run on the main thread; no async needed.
       const newPage = figma.createPage();
       newPage.name = msg.name;
-      await figma.clientStorage.setAsync("targetPageName", msg.name);
+      await figma.clientStorage.setAsync(fileScoped("targetPageName"), msg.name);
       // Re-send the pages list so the UI updates with the new page selected.
       const pages = figma.root.children.map((p) => ({
         name: p.name,
