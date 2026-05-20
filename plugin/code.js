@@ -1615,6 +1615,29 @@ async function buildArtboards(payload) {
             }
           }
 
+          if (stateCapture && stateCapture.elements) {
+            // H4-v2 diagnostic — surface mapping coverage for this state.
+            var mappedCount = 0;
+            var unmappedSigs = {};
+            for (var di = 0; di < stateCapture.elements.length; di++) {
+              var dsig = stateCapture.elements[di].signature;
+              if (patternMappings[dsig]) {
+                mappedCount++;
+              } else if (!unmappedSigs[dsig]) {
+                unmappedSigs[dsig] = true;
+              }
+            }
+            var mappingsCount = Object.keys(patternMappings).length;
+            if (mappingsCount > 0 && mappedCount === 0) {
+              // Likely signature mismatch — surface top 5 captured signatures
+              // and top 5 mapped signatures so user can see the gap.
+              var capturedTop = Object.keys(unmappedSigs).slice(0, 5);
+              var mappedTop = Object.keys(patternMappings).slice(0, 5);
+              warnings.push(stateName_h4v2 + ": 0 of " + stateCapture.elements.length + " captured elements matched any of " + mappingsCount + " pattern mappings. Captured sigs (first 5): " + capturedTop.join(" | ") + ". Mapped sigs (first 5): " + mappedTop.join(" | "));
+              counts.warnings++;
+            }
+          }
+
           if (stateCapture && stateCapture.elements && stateCapture.elements.length > 0 && dialogBodyContent) {
             // For positioning: scale captured bounding boxes to fit inside the
             // dialog body. We use the CAPTURED viewport size (bodyWidth/Height)

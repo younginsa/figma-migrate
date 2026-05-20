@@ -3998,6 +3998,38 @@
 
         function walkDomForElements(doc) {
           var SKIP = { SCRIPT: 1, STYLE: 1, LINK: 1, META: 1, HEAD: 1, TITLE: 1, BR: 1, HR: 1, IMG: 1 };
+
+          // Utility class patterns — MUST mirror code.js parseHtml's
+          // UTILITY_CLASS_PATTERNS exactly. If you update one, update both.
+          // Phase H8.1: this was the bug where mapped signatures didn't match
+          // captured ones because H1 stripped utilities and H8 didn't.
+          var UTILITY_PATTERNS = [
+            /^m[trblxy]?-/, /^p[trblxy]?-/, /^space-[xy]-/, /^gap-/,
+            /^w-/, /^h-/, /^max-w-/, /^min-w-/, /^max-h-/, /^min-h-/, /^size-/,
+            /^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|left|center|right|justify)$/,
+            /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black|sans|serif|mono)$/,
+            /^leading-/, /^tracking-/,
+            /^bg-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+            /^text-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+            /^border-(red|blue|green|yellow|purple|pink|indigo|gray|slate|zinc|neutral|stone|orange|amber|lime|emerald|teal|cyan|sky|violet|fuchsia|rose)-/,
+            /^flex(-|$)/, /^grid(-|$)/, /^col(-|$)/, /^row(-|$)/, /^justify-/, /^items-/, /^content-/, /^self-/,
+            /^place-/, /^order-/,
+            /^rounded(-|$)/, /^border(-|$)/, /^divide-/, /^ring-/,
+            /^col-/, /^offset-/, /^d-/, /^mb-/, /^mt-/, /^ms-/, /^me-/, /^px-/, /^py-/,
+            /^block$/, /^inline$/, /^inline-block$/, /^hidden$/, /^absolute$/, /^relative$/, /^fixed$/, /^sticky$/, /^static$/,
+            /^top-/, /^bottom-/, /^left-/, /^right-/, /^inset-/, /^z-/,
+            /^(hover|focus|active|disabled|sm|md|lg|xl|2xl|dark|first|last|even|odd):/,
+            /^opacity-/, /^cursor-/, /^pointer-events-/, /^select-/, /^overflow(-|$)/, /^truncate$/,
+            /^transition(-|$)/, /^duration-/, /^ease-/, /^transform$/, /^translate-/, /^rotate-/, /^scale-/,
+            /^shadow(-|$)/, /^outline-/, /^appearance-/, /^resize(-|$)/,
+          ];
+          function isUtility(cls) {
+            for (var ui = 0; ui < UTILITY_PATTERNS.length; ui++) {
+              if (UTILITY_PATTERNS[ui].test(cls)) return true;
+            }
+            return false;
+          }
+
           var els = [];
           var all = doc.body ? doc.body.querySelectorAll("*") : [];
           for (var i = 0; i < all.length; i++) {
@@ -4005,13 +4037,20 @@
             if (SKIP[el.tagName]) continue;
             var cls = el.getAttribute && el.getAttribute("class");
             if (!cls) continue;
-            // Compute signature: tag + sorted alphabetical classes
-            var classes = cls.split(/\s+/).filter(Boolean);
+            var rawClasses = cls.split(/\s+/).filter(Boolean);
+            if (rawClasses.length === 0) continue;
+            // Filter dynamic/template-literal/arbitrary classes (same as H1).
+            rawClasses = rawClasses.filter(function (c) {
+              if (c.indexOf("${") !== -1 || c.indexOf("{{") !== -1) return false;
+              if (c.charAt(0) === "[" && c.charAt(c.length - 1) === "]") return false;
+              return true;
+            });
+            // Strip utility classes — SAME as H1's parser, so signatures match.
+            var classes = rawClasses.filter(function (c) { return !isUtility(c); });
             if (classes.length === 0) continue;
             classes.sort();
             var sig = el.tagName.toLowerCase() + "." + classes.join(".");
             var rect = el.getBoundingClientRect();
-            // Skip elements with 0 size (hidden by display: none style)
             if (rect.width === 0 && rect.height === 0) continue;
             var text = (el.textContent || "").trim().slice(0, 200);
             els.push({
@@ -4122,6 +4161,17 @@
               // Wait for re-render
               await waitForFrames(3);
             } // else: keep current DOM, capture it anyway as a best-effort
+
+            // H8.1 diagnostic: log what state the iframe appears to be on now.
+            var visibleHint = "(unknown)";
+            try {
+              if (doc.body) {
+                // Common indicators: a wrapper with class containing the state name,
+                // or a heading. Capture first 80 chars of body's innerHTML as a hint.
+                visibleHint = (doc.body.innerHTML || "").replace(/\s+/g, " ").trim().slice(0, 120);
+              }
+            } catch (eHint) {}
+            console.log("[H8] capturing state=" + stateName + " | DOM hint:", visibleHint);
 
             var elements = walkDomForElements(doc);
             var screenshot = await captureStateScreenshot(doc);
