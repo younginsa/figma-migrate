@@ -185,22 +185,35 @@ function manifestsEqual(a, b) {
 //      fallback robust against ID/key drift across DS edits
 // Returns the component node or null.
 // ============================================================
+// Unwrap a COMPONENT_SET to a single instantiable COMPONENT variant.
+// createInstance() exists on COMPONENT, not on COMPONENT_SET — so any
+// caller that picked a variant set from Screen M needs the variant
+// resolved here. Prefers defaultVariant, falls back to first child.
+function unwrapToVariant(node) {
+  if (!node) return null;
+  if (node.type === "COMPONENT") return node;
+  if (node.type === "COMPONENT_SET") {
+    return node.defaultVariant || (node.children && node.children[0]) || null;
+  }
+  return null;
+}
+
 async function resolveDsComponent(mapping) {
   if (!mapping) return null;
   // 1) Try by ID (local components, instant lookup)
   if (mapping.componentId) {
     try {
       var byId = await figma.getNodeByIdAsync(mapping.componentId);
-      if (byId && (byId.type === "COMPONENT" || byId.type === "COMPONENT_SET")) {
-        return byId;
-      }
+      var byIdV = unwrapToVariant(byId);
+      if (byIdV) return byIdV;
     } catch (eId) { /* fall through */ }
   }
   // 2) Try by key (published library components)
   if (mapping.componentKey) {
     try {
       var byKey = await figma.importComponentByKeyAsync(mapping.componentKey);
-      if (byKey) return byKey;
+      var byKeyV = unwrapToVariant(byKey);
+      if (byKeyV) return byKeyV;
     } catch (eKey) { /* fall through */ }
   }
   // 3) Last-ditch: scan the in-file Design system page for a name match
@@ -224,7 +237,8 @@ async function resolveDsComponent(mapping) {
             }
           }
           walk(dsPage);
-          if (found) return found;
+          var foundV = unwrapToVariant(found);
+          if (foundV) return foundV;
         }
       }
     } catch (eName) { /* fall through */ }
@@ -1412,6 +1426,11 @@ async function buildArtboards(payload) {
   var warnings = [];
   var createdNodes = [];
 
+  // Per-signature tally for Phase H4-v2 diagnostics. Tracks how many
+  // captured occurrences each signature had + how many instances we
+  // actually placed. Surfaces "mapped but never placed" cases.
+  var patternTally = {}; // sig -> { captured, placed, mappedTo }
+
   // After the first dialog instance is built, we sample its text styles
   // + bg fill so we can borrow the file's library text-style bindings
   // for the candidate cards + band header. Populated once, reused.
@@ -1621,6 +1640,15 @@ async function buildArtboards(payload) {
             var unmappedSigs = {};
             for (var di = 0; di < stateCapture.elements.length; di++) {
               var dsig = stateCapture.elements[di].signature;
+              // Per-signature tally — count every capture, mapped or not.
+              if (!patternTally[dsig]) {
+                patternTally[dsig] = {
+                  captured: 0,
+                  placed: 0,
+                  mappedTo: patternMappings[dsig] ? (patternMappings[dsig].componentName || "(unnamed)") : null,
+                };
+              }
+              patternTally[dsig].captured++;
               if (patternMappings[dsig]) {
                 mappedCount++;
               } else if (!unmappedSigs[dsig]) {
@@ -1639,19 +1667,30 @@ async function buildArtboards(payload) {
           }
 
           if (stateCapture && stateCapture.elements && stateCapture.elements.length > 0 && dialogBodyContent) {
-            // For positioning: scale captured bounding boxes to fit inside the
-            // dialog body. We use the CAPTURED viewport size (bodyWidth/Height)
-            // as the source dimensions.
+            // Figma forbids appendChild into a node that's inside a component
+            // instance. The Setting dialog body is inside an instance, so we
+            // place pattern-mapped DS components on the ARTBOARD itself with
+            // ABSOLUTE positioning, offset so they visually overlay the
+            // dialog body's screenshot.
             var srcW = stateCapture.bodyWidth || 1200;
             var srcH = stateCapture.bodyHeight || 800;
             var dstW = dialogBodyContent.width || ARTBOARD_W;
             var dstH = dialogBodyContent.height || ARTBOARD_H;
             var scaleX = dstW / srcW;
             var scaleY = dstH / srcH;
-            // Use the smaller scale to preserve aspect ratio
             var scale = Math.min(scaleX, scaleY);
 
-            // Find every element with a pattern mapping
+            // Offset of dialogBodyContent within the artboard (so positions
+            // computed relative to the body land at the right place on the
+            // artboard). Uses absoluteBoundingBox which is reliable once
+            // children are in the auto-layout flow.
+            var bodyAbb = null;
+            var artbAbb = null;
+            try { bodyAbb = dialogBodyContent.absoluteBoundingBox; } catch (eAbb1) {}
+            try { artbAbb = artboard.absoluteBoundingBox; } catch (eAbb2) {}
+            var offsetX = (bodyAbb && artbAbb) ? (bodyAbb.x - artbAbb.x) : 0;
+            var offsetY = (bodyAbb && artbAbb) ? (bodyAbb.y - artbAbb.y) : 0;
+
             for (var ei = 0; ei < stateCapture.elements.length; ei++) {
               if (_cancelRequested) break;
               var el = stateCapture.elements[ei];
@@ -1665,17 +1704,22 @@ async function buildArtboards(payload) {
                   counts.warnings++;
                   continue;
                 }
+                if (typeof elComp.createInstance !== "function") {
+                  warnings.push(stateName_h4v2 + ": resolved node for " + (mapping.componentName || el.signature) + " is type=" + elComp.type + " (no createInstance). Re-pick the component as an INSTANCE on canvas via Screen M.");
+                  counts.warnings++;
+                  continue;
+                }
                 var elInst = elComp.createInstance();
-                dialogBodyContent.appendChild(elInst);
+                // Append to the ARTBOARD (not the dialog body), since the
+                // dialog body lives inside an instance and Figma forbids
+                // adding children there.
+                try { elInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
+                artboard.appendChild(elInst);
                 if (!elInst.visible) {
                   try { elInst.visible = true; } catch (eVis) {}
                 }
-                // Position relative to dialog body using scaled bounding box.
-                // The captured x/y are in iframe viewport coords; the dialog
-                // body's content area starts at (0, 0) in its local space.
-                try { elInst.layoutPositioning = "ABSOLUTE"; } catch (eLP) {}
-                var localX = Math.round(el.x * scale);
-                var localY = Math.round(el.y * scale);
+                var localX = Math.round(offsetX + el.x * scale);
+                var localY = Math.round(offsetY + el.y * scale);
                 elInst.x = localX;
                 elInst.y = localY;
 
@@ -1691,6 +1735,9 @@ async function buildArtboards(payload) {
                 }
 
                 counts.patterns = (counts.patterns || 0) + 1;
+                if (patternTally[el.signature]) {
+                  patternTally[el.signature].placed++;
+                }
               } catch (eImport) {
                 warnings.push(stateName_h4v2 + ": " + (eImport.message || String(eImport)));
                 counts.warnings++;
@@ -1920,6 +1967,11 @@ async function buildArtboards(payload) {
     if (mapping && (mapping.componentKey || mapping.componentId)) {
       try {
         var comp = await resolveDsComponent(mapping);
+        if (comp && typeof comp.createInstance !== "function") {
+          warnings.push("DS Candidate " + ca.name + ": resolved node is type=" + comp.type + " (no createInstance). Re-pick this candidate's component on canvas via Screen M.");
+          counts.warnings++;
+          comp = null;
+        }
         if (comp) {
           var inst = comp.createInstance();
           inst.name = "DS Candidate — " + ca.name;
@@ -2054,6 +2106,12 @@ async function buildArtboards(payload) {
           counts.manualMatches = mi + 1;
           continue; // skip this match entirely — no instance to create
         }
+        if (typeof matchComp.createInstance !== "function") {
+          warnings.push("Match — " + match.componentName + ": resolved node is type=" + matchComp.type + " (no createInstance). Re-pick this match as an INSTANCE on canvas via Screen N.");
+          counts.warnings++;
+          counts.manualMatches = mi + 1;
+          continue;
+        }
         var matchInst = matchComp.createInstance();
         matchArtboard.appendChild(matchInst);
         // Diagnostic: verify the instance is visible + has size (Issue 4).
@@ -2132,6 +2190,24 @@ async function buildArtboards(payload) {
     nodeIds: allNodeIds,
     timestamp: new Date().toISOString(),
   });
+
+  // Pattern tally — emit as a single warning entry so it's visible
+  // in the Done dialog. Sorted by captured count descending, with
+  // mapped status next to each line so the user can spot mapped-but-
+  // unplaced signatures (input shows up as 'mapped → 0 placed').
+  var tallySigs = Object.keys(patternTally);
+  if (tallySigs.length > 0) {
+    tallySigs.sort(function (a, b) { return patternTally[b].captured - patternTally[a].captured; });
+    var tallyLines = ["Pattern capture tally (per signature, across all states):"];
+    for (var ti = 0; ti < tallySigs.length; ti++) {
+      var ts = tallySigs[ti];
+      var tt = patternTally[ts];
+      var mapPart = tt.mappedTo ? (" → mapped to '" + tt.mappedTo + "', placed " + tt.placed) : " (unmapped)";
+      tallyLines.push("  " + ts + " × " + tt.captured + mapPart);
+    }
+    warnings.push(tallyLines.join("\n"));
+    counts.warnings++;
+  }
 
   // 8. Done
   figma.ui.postMessage({

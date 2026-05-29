@@ -1,0 +1,2940 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>figma-migrate plugin — v0.2 pattern-group panel mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --bg-page:        #EDEDF0;
+      --bg-panel:       #FFFFFF;
+      --bg-elevated:    #FAFAFB;
+      --bg-row-hover:   #F2F4F7;
+      --bg-input:       #FFFFFF;
+
+      --border-default: #DFE1E6;
+      --border-subtle:  #ECEEF1;
+      --border-emphasis:#C0C4CC;
+
+      --text-primary:   #1F2024;
+      --text-secondary: #4D505B;
+      --text-muted:     #8A8E99;
+      --text-emphasis:  #0E0F12;
+      --text-on-primary:#FFFFFF;
+      --text-disabled:  #C0C4CC;
+
+      --primary:        #1379F3;
+      --primary-hover:  #348FF4;
+      --primary-subtle: #E4F0FE;
+
+      --success:        #2BB46D;
+      --success-subtle: #E6F6EE;
+      --warning:        #F4810C;
+      --warning-subtle: #FDF1E2;
+
+      --font:           "Inter", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+      --font-mono:      "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+
+      --shadow-panel: 0 1px 3px rgba(15, 17, 22, 0.06), 0 8px 24px rgba(15, 17, 22, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text-primary);
+      background: var(--bg-page);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .doc { max-width: 2400px; margin: 0 auto; padding: 56px 48px 96px; }
+    .doc__header { margin-bottom: 48px; }
+    .doc__eyebrow {
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin-bottom: 12px;
+    }
+    .doc__title { font-size: 32px; font-weight: 700; color: var(--text-emphasis); margin: 0 0 12px; }
+    .doc__subtitle { font-size: 14px; color: var(--text-secondary); margin: 0; max-width: 720px; line-height: 1.5; }
+
+    .strip { display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start; }
+    .strip__cell { display: flex; flex-direction: column; gap: 12px; width: 380px; }
+    .strip__cell--wide { width: 800px; }
+    .strip__cell--xwide { width: 1000px; }
+    .strip__cell-label { font: 600 11px/1 var(--font-mono); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .strip__cell-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+    .strip__cell-note strong { color: var(--text-primary); font-weight: 600; }
+
+    /* Panel */
+    .panel {
+      width: 380px; height: 800px;
+      background: var(--bg-panel);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-panel);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel--wide { width: 800px; }
+    .panel--xwide { width: 1000px; }
+    .panel__topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .panel__title { font-size: 13px; font-weight: 600; color: var(--text-emphasis); margin: 0; }
+    .panel__title-eyebrow { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+    .panel__close {
+      width: 22px; height: 22px; border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); cursor: pointer; font-size: 14px;
+    }
+    .panel__close:hover { background: var(--bg-row-hover); }
+    .panel__body { flex: 1; overflow-y: auto; padding: 16px 14px 14px; }
+    .panel__footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 12px 14px;
+      display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+      background: var(--bg-panel);
+    }
+    .panel__footer--split { justify-content: space-between; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      font-size: 12px; font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 80ms;
+      white-space: nowrap;
+    }
+    .btn--primary { background: var(--primary); color: var(--text-on-primary); }
+    .btn--primary:hover { background: var(--primary-hover); }
+    .btn--primary:disabled { background: var(--border-default); cursor: default; }
+    .btn--secondary { background: var(--bg-panel); color: var(--text-secondary); border-color: var(--border-default); }
+    .btn--secondary:hover { background: var(--bg-row-hover); }
+    .btn--ghost { background: transparent; color: var(--text-secondary); }
+    .btn--ghost:hover { background: var(--bg-row-hover); }
+    .btn--icon { padding: 6px 8px; }
+    .btn--icon svg { width: 14px; height: 14px; }
+    .btn--block { width: 100%; }
+
+    /* Section labels */
+    .section-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 0 0 8px;
+    }
+
+    /* Drop zone (Screen 1) */
+    .drop {
+      border: 1.5px dashed var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 24px 16px 16px;
+      text-align: center;
+      background: var(--bg-elevated);
+    }
+    .drop__icon { font-size: 22px; margin-bottom: 8px; color: var(--text-muted); }
+    .drop__title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 6px; }
+    .drop__hint { font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4; }
+    .drop__textarea {
+      width: 100%; margin-top: 14px;
+      min-height: 200px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      font: 11px/1.5 var(--font-mono);
+      resize: vertical;
+      color: var(--text-secondary);
+    }
+    .drop__textarea:focus { outline: none; border-color: var(--primary); }
+
+    /* Config row */
+    .config-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      margin-top: 10px;
+      cursor: pointer;
+      background: var(--bg-panel);
+    }
+    .config-row:hover { background: var(--bg-row-hover); }
+    .config-row__label { font-size: 11px; color: var(--text-muted); }
+    .config-row__value { font-size: 12px; font-weight: 500; color: var(--text-primary); display: flex; align-items: center; gap: 4px; }
+    .config-row__chevron { color: var(--text-muted); font-size: 14px; }
+
+    /* Stat grid (Screen 2 top) */
+    .stat-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--border-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .stat-grid--two { grid-template-columns: 1fr 1fr; }
+    .stat {
+      background: var(--bg-panel);
+      padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .stat__num { font-size: 18px; font-weight: 700; color: var(--text-emphasis); line-height: 1; }
+    .stat__label { font-size: 10px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* Action bar above pattern list */
+    .action-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+
+    /* Pattern list */
+    .pattern-list { display: flex; flex-direction: column; gap: 0; }
+    .pattern-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      position: relative;
+    }
+    .pattern-row:hover { background: var(--bg-row-hover); }
+    .pattern-row--disabled { opacity: 0.4; cursor: not-allowed; }
+    .pattern-row--disabled:hover { background: transparent; }
+    .pattern-row__check {
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 1.5px solid var(--border-emphasis);
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-panel);
+    }
+    .pattern-row__check--checked {
+      background: var(--primary); border-color: var(--primary);
+      color: white; font-size: 9px; font-weight: 700;
+    }
+    .pattern-row__drag {
+      width: 14px; height: 14px; flex-shrink: 0;
+      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: grab;
+      opacity: 0;
+      transition: opacity 100ms;
+    }
+    .pattern-row:hover .pattern-row__drag { opacity: 0.7; }
+    .pattern-row__drag:hover { opacity: 1 !important; }
+    .pattern-row__drag svg { width: 100%; height: 100%; }
+    .pattern-row__swatch {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .pattern-row__main { flex: 1; min-width: 0; }
+    .pattern-row__name {
+      font-size: 12px; font-weight: 600; color: var(--text-primary);
+      margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pattern-row__meta { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+    .pattern-row__count {
+      background: var(--primary-subtle); color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px; font-weight: 600;
+      flex-shrink: 0;
+    }
+    .pattern-row__count--single {
+      background: var(--bg-row-hover); color: var(--text-muted);
+    }
+    .pattern-row__chevron { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+
+    /* Grouped pattern (Screen 2c) */
+    .pattern-group {
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      background: var(--bg-panel);
+      overflow: hidden;
+    }
+    .pattern-group__header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px;
+      background: var(--primary-subtle);
+      border-bottom: 1px solid var(--primary);
+    }
+    .pattern-group__name {
+      font-size: 12px; font-weight: 700; color: var(--text-emphasis);
+      flex: 1;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .pattern-group__edit {
+      width: 18px; height: 18px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm);
+    }
+    .pattern-group__edit:hover { color: var(--text-secondary); background: var(--bg-panel); }
+    .pattern-group__count {
+      font-size: 10px; color: var(--primary); font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .pattern-group__body {
+      padding: 4px 0;
+    }
+    .pattern-group .pattern-row {
+      padding-left: 14px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .pattern-group .pattern-row:last-child { border-bottom: none; }
+
+    /* Group selected state — unlink button visible */
+    .pattern-group--selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(19, 121, 243, 0.15);
+    }
+    .pattern-group__unlink {
+      width: 22px; height: 22px;
+      color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .pattern-group__unlink:hover { background: var(--bg-panel); }
+    .pattern-group__unlink svg { width: 13px; height: 13px; }
+    .pattern-group__unlink::after {
+      content: "Ungroup";
+      position: absolute;
+      right: calc(100% + 6px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--text-emphasis);
+      color: white;
+      font-size: 10px; font-weight: 500;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 100ms;
+      z-index: 10;
+    }
+    .pattern-group__unlink:hover::after { opacity: 1; }
+
+    /* Category divider */
+    .category {
+      display: flex; align-items: center; gap: 8px;
+      margin: 16px 0 6px;
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .category--first { margin-top: 4px; }
+    .category__count {
+      background: var(--bg-row-hover); color: var(--text-secondary);
+      padding: 1px 6px; border-radius: 999px; font-size: 10px;
+    }
+
+    /* Selection mode hint */
+    .hint-bar {
+      background: var(--primary-subtle);
+      color: var(--text-primary);
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-bottom: 12px;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .hint-bar__icon { 
+      color: var(--primary); 
+      flex-shrink: 0; 
+      margin-top: 1px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Pattern detail (Screen 3) */
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text-muted);
+      margin-bottom: 10px; cursor: pointer;
+    }
+    .breadcrumb:hover { color: var(--text-secondary); }
+
+    .detail-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .detail-card__head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .detail-card__swatch {
+      width: 44px; height: 44px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+    .detail-card__name { font-size: 14px; font-weight: 600; color: var(--text-emphasis); margin: 0 0 2px; }
+    .detail-card__meta { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .detail-card__hint {
+      font-size: 11px; color: var(--text-secondary);
+      line-height: 1.5;
+      padding: 8px 10px;
+      background: var(--primary-subtle);
+      border-radius: var(--radius-sm);
+      margin-top: 8px;
+    }
+    .detail-card__hint strong { color: var(--text-primary); font-weight: 600; }
+
+    .instance-list {
+      display: flex; flex-direction: column;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .instance-row {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .instance-row:last-child { border-bottom: none; }
+    .instance-row__summary {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .instance-row__summary:hover { background: var(--bg-row-hover); }
+    .instance-row__loc { font-family: var(--font-mono); color: var(--text-muted); font-size: 10px; flex-shrink: 0; min-width: 50px; }
+    .instance-row__preview { flex: 1; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 10px; }
+    .instance-row__view { color: var(--text-muted); font-size: 11px; }
+    .instance-row__view:hover { color: var(--primary); }
+    .instance-row__view-icon { color: var(--text-muted); transition: transform 120ms; }
+    .instance-row__view-icon--open { transform: rotate(90deg); color: var(--primary); }
+
+    .instance-row__detail {
+      padding: 12px 14px 14px;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .instance-detail-label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 0 0 6px;
+    }
+    .iframe-preview {
+      background: white;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 18px 14px;
+      margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 56px;
+    }
+    .iframe-preview__rendered-button {
+      background: #1379F3;
+      color: white;
+      font-family: var(--font);
+      font-size: 13px; font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 4px;
+      border: none;
+    }
+
+    /* Wide iframe preview - full page with element highlight (Screen 3 wide) */
+    .iframe-mock {
+      background: white;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      overflow: hidden;
+      position: relative;
+      height: 380px;
+    }
+    .iframe-mock__viewport {
+      width: 100%; height: 100%;
+      overflow: auto;
+      background: #F5F6F8;
+      padding: 16px;
+      display: flex; justify-content: center;
+    }
+    .iframe-mock__page {
+      width: 720px;
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+    .iframe-mock__page-header {
+      height: 40px;
+      background: #1F2937;
+      display: flex; align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      color: #9CA3AF;
+      font-size: 11px;
+    }
+    .iframe-mock__page-header-logo {
+      color: white; font-weight: 600; font-size: 12px;
+    }
+    .iframe-mock__page-tabs {
+      display: flex; gap: 0;
+      background: white;
+      border-bottom: 1px solid #E5E7EB;
+      padding: 0 20px;
+    }
+    .iframe-mock__page-tab {
+      padding: 10px 14px;
+      font-size: 11px;
+      color: #6B7280;
+      border-bottom: 2px solid transparent;
+    }
+    .iframe-mock__page-tab--active {
+      color: #1379F3;
+      border-bottom-color: #1379F3;
+      font-weight: 500;
+    }
+    .iframe-mock__page-body {
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+    }
+    .iframe-mock__page-main {
+      flex: 1;
+    }
+    .iframe-mock__section-title {
+      font-size: 13px; font-weight: 600; color: #111827;
+      margin-bottom: 12px;
+    }
+    .iframe-mock__profile-card {
+      background: #F9FAFB;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      padding: 12px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 8px;
+    }
+    .iframe-mock__profile-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #D1D5DB;
+    }
+    .iframe-mock__profile-info {
+      flex: 1;
+    }
+    .iframe-mock__profile-name {
+      font-size: 12px; font-weight: 500; color: #111827;
+      margin-bottom: 2px;
+    }
+    .iframe-mock__profile-detail {
+      font-size: 10px; color: #6B7280;
+    }
+    .iframe-mock__form-row {
+      display: flex; gap: 12px;
+      margin-bottom: 10px;
+    }
+    .iframe-mock__form-label {
+      font-size: 10px; color: #6B7280;
+      width: 80px;
+      padding-top: 6px;
+    }
+    .iframe-mock__form-input {
+      flex: 1;
+      height: 28px;
+      border: 1px solid #D1D5DB;
+      border-radius: 4px;
+      background: white;
+      padding: 0 10px;
+      font-size: 11px;
+      color: #6B7280;
+      display: flex; align-items: center;
+    }
+    .iframe-mock__button-row {
+      display: flex; gap: 8px;
+      margin-top: 14px;
+    }
+    .iframe-mock__page-btn {
+      padding: 7px 14px;
+      border-radius: 4px;
+      font-size: 11px; font-weight: 500;
+      border: none;
+      cursor: default;
+    }
+    .iframe-mock__page-btn--primary {
+      background: #1379F3;
+      color: white;
+    }
+    .iframe-mock__page-btn--secondary {
+      background: white;
+      color: #4B5563;
+      border: 1px solid #D1D5DB;
+    }
+
+    /* Highlighted (selected) element */
+    .iframe-mock__highlight {
+      position: relative;
+      outline: 2px dashed #EF4444;
+      outline-offset: 3px;
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+    }
+    .iframe-mock__highlight::after {
+      content: "selected instance";
+      position: absolute;
+      top: -22px; left: 0;
+      background: #EF4444;
+      color: white;
+      font-size: 9px; font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .iframe-mock__toolbar {
+      position: absolute;
+      bottom: 10px; right: 10px;
+      background: var(--text-emphasis);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .iframe-mock__toolbar-zoom { font-family: var(--font-mono); }
+    .iframe-mock__toolbar-btn {
+      width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: rgba(255,255,255,0.7);
+      font-size: 12px;
+    }
+    .iframe-mock__toolbar-btn:hover { color: white; }
+
+    /* ============================================================
+       Screen 1a — Auto-detect results
+       ============================================================ */
+    .detection-result {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 16px;
+    }
+    .detection-result--success {
+      background: var(--success-subtle);
+      border: 1px solid rgba(43, 180, 109, 0.25);
+    }
+    .detection-result--fail {
+      background: var(--warning-subtle);
+      border: 1px solid rgba(244, 129, 12, 0.25);
+    }
+    .detection-result--neutral {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+    }
+    .detection-result__icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .detection-result--success .detection-result__icon {
+      background: var(--success); color: white;
+    }
+    .detection-result--fail .detection-result__icon {
+      background: var(--warning); color: white;
+    }
+    .detection-result--neutral .detection-result__icon {
+      background: var(--text-secondary); color: white;
+    }
+    .detection-result__title {
+      font-size: 13px; font-weight: 600; color: var(--text-emphasis);
+      margin-bottom: 2px;
+    }
+    .detection-result__method {
+      font-size: 11px; color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .state-list {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .state-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .state-item:last-child { border-bottom: none; }
+    .state-item__index {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--bg-row-hover);
+      color: var(--text-secondary);
+      font-size: 10px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .state-item__name {
+      flex: 1;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    .state-item__hint {
+      font-size: 10px; color: var(--text-muted);
+    }
+
+    /* ============================================================
+       Screen 1b — Snapshot UI (1000px wide)
+       ============================================================ */
+    .snapshot-body {
+      display: flex;
+      height: 100%;
+      padding: 0;
+    }
+    .snapshot-preview {
+      flex: 1;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--border-subtle);
+      min-width: 0;
+    }
+    .snapshot-preview__toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px; color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .snapshot-preview__controls {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .snapshot-preview__controls button {
+      width: 22px; height: 22px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+    }
+    .snapshot-preview__controls button:hover {
+      background: var(--bg-row-hover);
+    }
+    .snapshot-preview__zoom {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      padding: 0 4px;
+      font-size: 11px;
+    }
+    .snapshot-preview__iframe {
+      flex: 1;
+      background: #F5F6F8;
+      overflow: auto;
+      padding: 16px;
+      display: flex; justify-content: center;
+      align-items: flex-start;
+      position: relative;
+    }
+    .snapshot-preview__action {
+      padding: 12px;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-subtle);
+      display: flex; justify-content: flex-end;
+    }
+    .capture-btn {
+      background: var(--primary-subtle);
+      color: var(--primary);
+      border: 1px solid transparent;
+      padding: 8px 14px;
+      font-weight: 600;
+    }
+    .capture-btn:hover {
+      background: #D6E7FB;
+    }
+    .capture-btn svg { stroke: var(--primary); }
+
+    .snapshot-gallery {
+      width: 320px;
+      display: flex; flex-direction: column;
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+    .snapshot-gallery__header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .snapshot-gallery__title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .snapshot-gallery__count {
+      background: var(--primary-subtle);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px; font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .snapshot-gallery__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 20px;
+    }
+    .snapshot-gallery__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .snapshot-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      position: relative;
+      cursor: pointer;
+    }
+    .snapshot-card:hover {
+      border-color: var(--border-emphasis);
+    }
+    .snapshot-card__thumb {
+      width: 56px; height: 40px;
+      background: white;
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+      font-size: 7px;
+      color: var(--text-muted);
+      padding: 3px;
+    }
+    .snapshot-card__thumb-line {
+      background: var(--border-subtle);
+      height: 2px;
+      margin-bottom: 2px;
+      border-radius: 1px;
+    }
+    .snapshot-card__thumb-button {
+      background: var(--primary);
+      height: 5px;
+      width: 16px;
+      border-radius: 1px;
+      margin-top: 3px;
+    }
+    .snapshot-card__info {
+      flex: 1;
+      min-width: 0;
+    }
+    .snapshot-card__label {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-weight: 500;
+      display: flex; align-items: center; gap: 4px;
+      font-family: var(--font-mono);
+    }
+    .snapshot-card__pencil {
+      width: 12px; height: 12px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 100ms;
+    }
+    .snapshot-card:hover .snapshot-card__pencil { opacity: 1; }
+    .snapshot-card__time {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .snapshot-card__delete {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(20, 22, 28, 0.6);
+      color: white;
+      border: none;
+      cursor: pointer;
+      position: absolute;
+      top: 4px; right: 4px;
+      font-size: 11px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 100ms;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .snapshot-card:hover .snapshot-card__delete { opacity: 1; }
+    .snapshot-card__delete:hover {
+      background: var(--danger);
+    }
+
+    .snapshot-card--auto {
+      background: var(--primary-subtle);
+      border-color: rgba(19, 121, 243, 0.2);
+    }
+    .snapshot-card--auto .snapshot-card__label {
+      color: var(--primary);
+    }
+    .snapshot-card__auto-badge {
+      font-size: 8px;
+      background: var(--primary);
+      color: white;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-family: var(--font);
+      margin-left: 4px;
+    }
+    .snapshot-card__drag {
+      position: absolute;
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-right: 4px;
+      width: 14px; height: 14px;
+      color: var(--text-muted);
+      cursor: grab;
+      opacity: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .snapshot-card:hover .snapshot-card__drag {
+      opacity: 0.7;
+    }
+    .snapshot-card__drag:hover {
+      opacity: 1;
+    }
+    .snapshot-card__drag svg {
+      width: 14px; height: 14px;
+    }
+    .show-code {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+    .show-code__label {
+      font-size: 11px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .show-code__chevron {
+      color: var(--text-muted); font-size: 11px;
+    }
+    .instance-detail-code {
+      font-family: var(--font-mono); font-size: 10px;
+      color: var(--text-primary);
+      background: var(--bg-panel);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    .instance-detail-meta {
+      font-size: 11px; color: var(--text-secondary);
+      display: flex; gap: 12px;
+    }
+    .instance-detail-meta strong { color: var(--text-primary); font-weight: 500; }
+
+    /* Stepper (Screen 4) */
+    .stepper { display: flex; flex-direction: column; gap: 10px; padding: 8px 4px; }
+    .stepper__row { display: flex; align-items: center; gap: 12px; }
+    .stepper__indicator {
+      width: 20px; height: 20px; flex-shrink: 0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+    }
+    .stepper__indicator--done { background: var(--success); color: white; }
+    .stepper__indicator--active { background: var(--primary); color: white; }
+    .stepper__indicator--pending { background: var(--bg-row-hover); color: var(--text-muted); border: 1px solid var(--border-default); }
+    .stepper__label { font-size: 12px; color: var(--text-primary); flex: 1; }
+    .stepper__label--pending { color: var(--text-muted); }
+    .stepper__detail { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .progress-bar {
+      width: 100%; height: 4px;
+      background: var(--bg-row-hover);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .progress-bar__fill { height: 100%; background: var(--primary); width: 65%; transition: width 200ms; }
+
+    /* Done card (Screen 5) */
+    .done {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 18px 16px;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .done__check {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--success-subtle);
+      color: var(--success);
+      font-size: 22px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .done__title { font-size: 16px; font-weight: 700; color: var(--text-emphasis); margin: 0 0 4px; }
+    .done__subtitle { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    .next-steps {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .next-steps__title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 0 0 12px;
+    }
+    .next-step {
+      display: flex; gap: 10px;
+      padding: 10px 0;
+      border-top: 1px solid var(--border-subtle);
+      align-items: flex-start;
+    }
+    .next-step:first-of-type { border-top: none; padding-top: 0; }
+    .next-step__num {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--primary-subtle);
+      color: var(--primary);
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      margin-top: 1px;
+    }
+    .next-step__text { font-size: 12px; line-height: 1.55; color: var(--text-secondary); margin: 0; flex: 1; }
+    .next-step__text strong { color: var(--text-primary); font-weight: 600; }
+
+    /* Settings (Screen 6) */
+    .settings-section { margin-bottom: 18px; }
+    .settings-section__title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin: 0 0 10px;
+    }
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .setting-row:first-of-type { border-top: none; padding-top: 0; }
+    .setting-row__main { flex: 1; }
+    .setting-row__name { font-size: 12px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+    .setting-row__hint { font-size: 11px; color: var(--text-muted); line-height: 1.4; margin: 0; }
+    .setting-row__hint code { font-family: var(--font-mono); font-size: 10px; background: var(--bg-row-hover); padding: 1px 4px; border-radius: 3px; }
+    .setting-row__control { flex-shrink: 0; }
+
+    .dropdown-trigger {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 8px 5px 10px;
+      background: var(--bg-row-hover);
+      border-radius: var(--radius-sm);
+      font-size: 12px; color: var(--text-primary);
+      cursor: pointer;
+      font-family: var(--font-mono);
+    }
+    .dropdown-trigger:hover { background: var(--border-subtle); }
+    .dropdown-trigger__chevron { color: var(--text-muted); font-size: 11px; margin-left: 2px; }
+
+    .toggle {
+      width: 32px; height: 18px;
+      background: var(--primary);
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+    }
+    .toggle__dot {
+      position: absolute; top: 2px; right: 2px;
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+    }
+    .toggle--off { background: var(--border-emphasis); }
+    .toggle--off .toggle__dot { right: auto; left: 2px; }
+
+    /* Selection footer counter */
+    .footer-counter {
+      font-size: 11px; color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* Dropdown menu (matches original mockup pattern) */
+    .config-row, .setting-row__control { position: relative; }
+
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 232px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      box-shadow: 0 12px 32px rgba(15, 17, 22, 0.18);
+      padding: 4px;
+      z-index: 20;
+      display: none;
+    }
+    .dropdown.is-open { display: block; }
+
+    .dropdown__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .dropdown__item:hover { background: var(--bg-row-hover); }
+    .dropdown__item--selected { color: var(--primary); font-weight: 500; }
+    .dropdown__check {
+      width: 14px;
+      height: 14px;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 14px;
+      color: var(--primary);
+    }
+    .dropdown__item-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dropdown__item-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: 8px;
+    }
+    .dropdown__item--selected .dropdown__item-hint { color: var(--primary); opacity: 0.7; }
+    .dropdown__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 6px;
+    }
+    .dropdown__item--create { color: var(--primary); }
+    .dropdown__create-form {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      align-items: center;
+    }
+    .dropdown__input {
+      flex: 1;
+      min-width: 0;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      font: 500 12px/1 var(--font);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(19, 121, 243, 0.18);
+    }
+    .dropdown__create-form .btn {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="doc">
+    <div class="doc__header">
+      <div class="doc__eyebrow">figma-migrate plugin · v0.2 mockup</div>
+      <h1 class="doc__title">Pattern-group approach</h1>
+      <p class="doc__subtitle">
+        HTML 페이지를 받으면 element를 박스로 깔고, 반복 패턴은 자체 component instance로 묶음.
+        DS 매칭은 하지 않음. 디자이너가 master 작업으로 DS와 자연스럽게 정렬.
+      </p>
+    </div>
+
+    <div class="strip">
+
+      <!-- =========================================================
+           Screen 1 — Paste HTML
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 1 · Paste HTML</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">figma-migrate</h2>
+              <div class="panel__title-eyebrow">Pattern-group · v0.2</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+            <p class="section-label">Source</p>
+            <div class="drop">
+              <div class="drop__icon">⌘</div>
+              <p class="drop__title">Paste HTML or drop file</p>
+              <p class="drop__hint">Multi-page HTML supported. Each page becomes one artboard.</p>
+            </div>
+            <textarea class="drop__textarea" placeholder="<!doctype html>
+<html>
+  <body>
+    <section data-page='dashboard'>
+      ...
+    </section>
+  
+  <script>
+    // Dropdown interactivity (matches original mockup behavior)
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // Close all open dropdowns
+      function closeAllDropdowns() {
+        document.querySelectorAll('.dropdown.is-open').forEach(d => {
+          d.classList.remove('is-open');
+          // Reset any create form back to create item
+          const form = d.querySelector('.dropdown__create-form');
+          if (form && form.dataset.originalHtml) {
+            form.outerHTML = form.dataset.originalHtml;
+          }
+        });
+      }
+
+      // Toggle dropdown on trigger click
+      document.querySelectorAll('[data-dropdown]').forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdownId = trigger.dataset.dropdown;
+          const dropdown = document.getElementById(dropdownId);
+          const wasOpen = dropdown.classList.contains('is-open');
+          closeAllDropdowns();
+          if (!wasOpen) dropdown.classList.add('is-open');
+        });
+      });
+
+      // Select option on click
+      document.querySelectorAll('.dropdown__item:not(.dropdown__item--create)').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdown = item.closest('.dropdown');
+          const trigger = document.querySelector(`[data-dropdown="${dropdown.id}"]`);
+          const valueEl = trigger.querySelector('.dropdown-value');
+          const textEl = item.querySelector('.dropdown__item-text');
+          if (valueEl && textEl) valueEl.textContent = textEl.textContent;
+
+          // Update selected state
+          dropdown.querySelectorAll('.dropdown__item').forEach(i => {
+            i.classList.remove('dropdown__item--selected');
+            const check = i.querySelector('.dropdown__check');
+            if (check && !i.classList.contains('dropdown__item--create')) {
+              check.innerHTML = '';
+            }
+          });
+          item.classList.add('dropdown__item--selected');
+          const check = item.querySelector('.dropdown__check');
+          if (check) {
+            check.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          }
+
+          dropdown.classList.remove('is-open');
+        });
+      });
+
+      // "+ Create new page" → morph to input
+      document.querySelectorAll('.dropdown__item--create').forEach(createItem => {
+        createItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdown = createItem.closest('.dropdown');
+          const trigger = document.querySelector(`[data-dropdown="${dropdown.id}"]`);
+
+          // Save original HTML so we can restore on Esc
+          const originalHtml = createItem.outerHTML;
+
+          const form = document.createElement('div');
+          form.className = 'dropdown__create-form';
+          form.dataset.originalHtml = originalHtml;
+          form.innerHTML = `
+            <input type="text" class="dropdown__input" value="figma-migrate output">
+            <button class="btn btn--primary">Create</button>
+          `;
+          createItem.replaceWith(form);
+
+          const input = form.querySelector('input');
+          input.focus();
+          input.select();
+
+          const commit = () => {
+            const name = input.value.trim() || 'New page';
+            // Add new item before the divider
+            const newItem = document.createElement('div');
+            newItem.className = 'dropdown__item';
+            newItem.innerHTML = `
+              <span class="dropdown__check"></span>
+              <span class="dropdown__item-text">${name}</span>
+            `;
+            const divider = dropdown.querySelector('.dropdown__divider');
+            if (divider) divider.before(newItem);
+
+            // Trigger selection of new item
+            newItem.click();
+
+            // Re-bind click handler for it
+            newItem.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const valueEl = trigger.querySelector('.dropdown-value');
+              valueEl.textContent = name;
+              dropdown.querySelectorAll('.dropdown__item').forEach(i => {
+                i.classList.remove('dropdown__item--selected');
+                const c = i.querySelector('.dropdown__check');
+                if (c && !i.classList.contains('dropdown__item--create')) c.innerHTML = '';
+              });
+              newItem.classList.add('dropdown__item--selected');
+              newItem.querySelector('.dropdown__check').innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              dropdown.classList.remove('is-open');
+            });
+
+            // Restore the create item for future use
+            form.outerHTML = originalHtml;
+            // Re-bind click handler for restored create item
+            const restored = dropdown.querySelector('.dropdown__item--create');
+            if (restored) {
+              const handler = restored.cloneNode(true);
+              restored.replaceWith(handler);
+              handler.addEventListener('click', arguments.callee);
+            }
+          };
+
+          const cancel = () => {
+            form.outerHTML = originalHtml;
+            const restored = dropdown.querySelector('.dropdown__item--create');
+            if (restored) {
+              restored.addEventListener('click', (ev) => {
+                createItem.dispatchEvent(new MouseEvent('click'));
+              });
+            }
+          };
+
+          input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+          });
+          form.querySelector('.btn').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            commit();
+          });
+        });
+      });
+
+      // Click outside to close
+      document.addEventListener('click', () => closeAllDropdowns());
+    });
+  </script>
+</body>
+</html>"></textarea>
+
+            <div style="margin-top: 16px;">
+              <p class="section-label">Configuration</p>
+              <div class="config-row" data-dropdown="dd-s1-target">
+                <span class="config-row__label">Target page</span>
+                <span class="config-row__value"><span class="dropdown-value">Drafts</span> <span class="config-row__chevron">›</span></span>
+    <div class="dropdown" id="dd-s1-target">
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">Drafts</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Components (generated)</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 1</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 2</span>
+      </div>
+      <div class="dropdown__divider"></div>
+      <div class="dropdown__item dropdown__item--create">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        <span class="dropdown__item-text">Create new page…</span>
+      </div>
+    </div>
+              </div>
+              <div class="config-row" data-dropdown="dd-s1-comp">
+                <span class="config-row__label">Components page</span>
+                <span class="config-row__value"><span class="dropdown-value">Components (generated)</span> <span class="config-row__chevron">›</span></span>
+    <div class="dropdown" id="dd-s1-comp">
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Drafts</span>
+      </div>
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">Components (generated)</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 1</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 2</span>
+      </div>
+      <div class="dropdown__divider"></div>
+      <div class="dropdown__item dropdown__item--create">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        <span class="dropdown__item-text">Create new page…</span>
+      </div>
+    </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel__footer panel__footer--split">
+            <button class="btn btn--secondary btn--icon" title="Settings">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round">
+                <path d="M9.4 1.5h-2.8l-.4 2a5.5 5.5 0 0 0-1.5.85L2.8 3.6l-1.4 2.4 1.6 1.3a5.5 5.5 0 0 0 0 1.4l-1.6 1.3 1.4 2.4 1.9-.75a5.5 5.5 0 0 0 1.5.85l.4 2h2.8l.4-2a5.5 5.5 0 0 0 1.5-.85l1.9.75 1.4-2.4-1.6-1.3a5.5 5.5 0 0 0 0-1.4l1.6-1.3-1.4-2.4-1.9.75a5.5 5.5 0 0 0-1.5-.85l-.4-2z"/>
+                <circle cx="8" cy="8" r="2"/>
+              </svg>
+            </button>
+            <button class="btn btn--primary" style="flex: 1;">Detect states</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          시작 화면. Paste HTML + 두 가지 설정 (target page, components page).
+          <strong>Settings는 ⚙ 아이콘 버튼으로</strong> (outlined secondary 스타일).
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 1a — Auto-detect results
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 1a · Auto-detect results</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+              <div class="panel__title-eyebrow">State detection</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="detection-result detection-result--success">
+              <div class="detection-result__icon">✓</div>
+              <div>
+                <div class="detection-result__title">10 states captured</div>
+                <div class="detection-result__method">via [data-dev] · 1 boot + 9 from markers</div>
+              </div>
+            </div>
+
+            <p class="section-label">States found</p>
+            <div class="state-list">
+              <div class="state-item">
+                <span class="state-item__index">1</span>
+                <span class="state-item__name">boot</span>
+                <span class="state-item__hint">initial page load</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">2</span>
+                <span class="state-item__name">populated</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">3</span>
+                <span class="state-item__name">loading</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">4</span>
+                <span class="state-item__name">empty</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">5</span>
+                <span class="state-item__name">select-error</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">6</span>
+                <span class="state-item__name">edit</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">7</span>
+                <span class="state-item__name">edit-dirty</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">8</span>
+                <span class="state-item__name">edit-invalid</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">9</span>
+                <span class="state-item__name">edit-saving</span>
+              </div>
+              <div class="state-item">
+                <span class="state-item__index">10</span>
+                <span class="state-item__name">edit-save-error</span>
+              </div>
+            </div>
+
+            <div class="hint-bar">
+              <span class="hint-bar__icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+              <span>Missing a state, or want to add interactions (hover/modal)? Choose <strong>Customize</strong> to capture more manually.</span>
+            </div>
+
+          </div>
+          <div class="panel__footer panel__footer--split">
+            <button class="btn btn--secondary"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: -2px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn--secondary">Customize</button>
+              <button class="btn btn--primary">Continue (10)</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          자동 탐지 결과 (state markers 발견). <strong>10 states 발견 → boot capture 1개 + marker 9개.</strong>
+          <strong>"Continue"</strong>로 바로 Screen 2 진행, <strong>"Customize"</strong>로 Screen 1b 진입.
+          Boot only 케이스는 아래 Screen 1a (boot only) 참조.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 1a (boot only) — No state markers detected
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 1a · Boot only (no markers)</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">mockup_html.html</h2>
+              <div class="panel__title-eyebrow">State detection</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="detection-result detection-result--neutral">
+              <div class="detection-result__icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="11"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <div>
+                <div class="detection-result__title">1 state captured (boot only)</div>
+                <div class="detection-result__method">no state markers detected · scanned: [data-dev], [data-state], [data-page], [data-view]</div>
+              </div>
+            </div>
+
+            <p class="section-label">States found</p>
+            <div class="state-list">
+              <div class="state-item">
+                <span class="state-item__index">1</span>
+                <span class="state-item__name">boot</span>
+                <span class="state-item__hint">initial page load</span>
+              </div>
+            </div>
+
+            <div class="hint-bar">
+              <span class="hint-bar__icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+              <span>The HTML has no state markers. Plugin captured the page as it loads. To add more states (e.g., modal open, error state), choose <strong>Customize</strong>.</span>
+            </div>
+
+          </div>
+          <div class="panel__footer panel__footer--split">
+            <button class="btn btn--secondary"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: -2px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn--secondary">Customize</button>
+              <button class="btn btn--primary">Continue (1)</button>
+            </div>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          <strong>Boot-only 케이스.</strong> detection-result는 중립 ⓘ 스타일 (success 초록도, fail 주황도 아님).
+          항상 boot capture 1개는 보장. State list에 "boot" 1개 표시.
+          <strong>"Continue (1)"</strong> → Screen 2로 1 artboard만 만들고 진행, <strong>"Customize"</strong> → Screen 1b 진입해서 추가 capture.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 1b — Snapshot UI (1000px wide)
+           ========================================================= -->
+      <div class="strip__cell strip__cell--xwide">
+        <div class="strip__cell-label">Screen 1b · Manual snapshot (panel resizes to 1000px)</div>
+        <div class="panel panel--xwide">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">Capture states manually</h2>
+              <div class="panel__title-eyebrow">Click around in preview, then capture each state</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body snapshot-body">
+
+            <!-- LEFT: Iframe preview -->
+            <div class="snapshot-preview">
+              <div class="snapshot-preview__toolbar">
+                <span>cpp-setting-tab-mockup.html</span>
+                <div class="snapshot-preview__controls">
+                  <button title="Reload">↻</button>
+                  <button title="Zoom out">−</button>
+                  <span class="snapshot-preview__zoom">100%</span>
+                  <button title="Zoom in">+</button>
+                </div>
+              </div>
+              <div class="snapshot-preview__iframe">
+                <div class="iframe-mock__page" style="width: 600px;">
+                  <!-- Mocked page content -->
+                  <div class="iframe-mock__page-header">
+                    <span class="iframe-mock__page-header-logo">HiNAS Control</span>
+                    <span>›</span>
+                    <span>Settings</span>
+                  </div>
+                  <div class="iframe-mock__page-tabs">
+                    <div class="iframe-mock__page-tab">Overview</div>
+                    <div class="iframe-mock__page-tab iframe-mock__page-tab--active">CPP</div>
+                    <div class="iframe-mock__page-tab">Sensors</div>
+                  </div>
+                  <div class="iframe-mock__page-body">
+                    <div class="iframe-mock__page-main">
+                      <div class="iframe-mock__section-title">Profile Configuration · Edit</div>
+                      <div class="iframe-mock__form-row">
+                        <span class="iframe-mock__form-label">Name</span>
+                        <div class="iframe-mock__form-input">Captain Profile A</div>
+                      </div>
+                      <div class="iframe-mock__form-row">
+                        <span class="iframe-mock__form-label">RPM</span>
+                        <div class="iframe-mock__form-input" style="border-color: #EF4444;">9999</div>
+                      </div>
+                      <div style="font-size: 10px; color: #EF4444; margin-top: -4px; margin-left: 92px; margin-bottom: 10px;">Value out of range (0–3000)</div>
+                      <div class="iframe-mock__form-row">
+                        <span class="iframe-mock__form-label">Mode</span>
+                        <div class="iframe-mock__form-input">Manual override</div>
+                      </div>
+                      <div class="iframe-mock__button-row">
+                        <button class="iframe-mock__page-btn iframe-mock__page-btn--secondary">Cancel</button>
+                        <button class="iframe-mock__page-btn iframe-mock__page-btn--primary" style="opacity: 0.5;">Save (disabled)</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="snapshot-preview__action">
+                <button class="btn capture-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Capture this state
+                </button>
+              </div>
+            </div>
+
+            <!-- RIGHT: Snapshot gallery -->
+            <div class="snapshot-gallery">
+              <div class="snapshot-gallery__header">
+                <span class="snapshot-gallery__title">Captured states</span>
+                <span class="snapshot-gallery__count">10</span>
+              </div>
+              <div class="snapshot-gallery__list">
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 70%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 50%;"></div>
+                    <div class="snapshot-card__thumb-button"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      populated
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 30%; background: var(--text-muted);"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      loading
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line" style="width: 40%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 30%; background: var(--text-muted);"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      empty
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 80%; background: #FCA5A5;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 60%;"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      select-error
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 60%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 80%;"></div>
+                    <div class="snapshot-card__thumb-button"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 60%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 80%;"></div>
+                    <div class="snapshot-card__thumb-button" style="background: #F59E0B;"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit-dirty
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 60%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 80%;"></div>
+                    <div class="snapshot-card__thumb-button" style="background: #EF4444;"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit-invalid
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 60%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 30%; background: var(--text-muted);"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit-saving
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card snapshot-card--auto">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 80%; background: #FCA5A5;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 70%;"></div>
+                    <div class="snapshot-card__thumb-button"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit-save-error
+                      <span class="snapshot-card__auto-badge">auto</span>
+                    </div>
+                    <div class="snapshot-card__time">from [data-dev]</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+                <div class="snapshot-card">
+
+
+                  <div class="snapshot-card__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                    <div class="snapshot-card__thumb">
+                    <div class="snapshot-card__thumb-line"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 40%;"></div>
+                    <div class="snapshot-card__thumb-line" style="width: 90%;"></div>
+                    <div style="position: absolute; bottom: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); border: 1px solid white;"></div>
+                  </div>
+                  <div class="snapshot-card__info">
+                    <div class="snapshot-card__label">
+                      edit-hover-delete
+                      <svg class="snapshot-card__pencil" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <path d="M11.5 2L14 4.5 5 13.5 1.5 14.5 2.5 11z"/>
+                      </svg>
+                    </div>
+                    <div class="snapshot-card__time">manual · just now</div>
+                  </div>
+                  <button class="snapshot-card__delete">×</button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--primary">Done — Use 10 states</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          <strong>이 화면 진입 시 plugin이 1000px로 resize</strong> (가장자리 drag로 resize 가능).
+          좌측: 실제 HTML이 iframe에 로드됨, <strong>디자이너가 자유롭게 클릭/탐색</strong>.
+          현재 상태에서 <strong>"Capture this state"</strong> 누르면 우측 갤러리에 추가됨.
+          <strong>auto 배지</strong> = 자동 탐지로 미리 capture된 것, <strong>없음</strong> = 디자이너가 수동 capture한 것.
+          썸네일 hover 시 우상단 <strong>× 삭제 버튼</strong>, 라벨 hover 시 <strong>pencil 편집 아이콘</strong> 표시.
+          "Done" → Screen 2 (Patterns)로 진행, 각 snapshot이 artboard 후보.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 2 — Patterns detected (initial view)
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 2 · Patterns detected</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+              <div class="panel__title-eyebrow">10 artboards · ready to build</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="stat-grid stat-grid--two">
+              <div class="stat">
+                <span class="stat__num">10</span>
+                <span class="stat__label">Patterns</span>
+              </div>
+              <div class="stat">
+                <span class="stat__num">18</span>
+                <span class="stat__label">Unique elements</span>
+              </div>
+            </div>
+
+            <div class="action-bar">
+              <span class="section-label" style="margin: 0;">Patterns</span>
+              <button class="btn btn--secondary" style="padding: 5px 10px; font-size: 11px;">Select to group →</button>
+            </div>
+
+            <div class="pattern-list">
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn primary</div>
+                  <div class="pattern-row__meta">button.btn.btn-primary</div>
+                </div>
+                <div class="pattern-row__count">12</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn secondary</div>
+                  <div class="pattern-row__meta">button.btn.btn-secondary</div>
+                </div>
+                <div class="pattern-row__count">8</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn danger</div>
+                  <div class="pattern-row__meta">button.btn.btn-danger</div>
+                </div>
+                <div class="pattern-row__count">2</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">card</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">profile card</div>
+                  <div class="pattern-row__meta">div.profile-card</div>
+                </div>
+                <div class="pattern-row__count">6</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">tab</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">tab item</div>
+                  <div class="pattern-row__meta">li.tab</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">in</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">labeled input</div>
+                  <div class="pattern-row__meta">div.form-row</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">md</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">modal frame</div>
+                  <div class="pattern-row__meta">div.modal</div>
+                </div>
+                <div class="pattern-row__count">4</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">ts</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">toast success</div>
+                  <div class="pattern-row__meta">div.toast.toast-success</div>
+                </div>
+                <div class="pattern-row__count">3</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+            </div>
+
+            <div class="category">
+              <span>Unique elements (1 occurrence)</span>
+              <span class="category__count">18</span>
+            </div>
+            <div class="pattern-list">
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">·</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">page header back nav</div>
+                  <div class="pattern-row__meta">a.page-header__back</div>
+                </div>
+                <div class="pattern-row__count pattern-row__count--single">1</div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+              <div class="pattern-row">
+                <div class="pattern-row__swatch">·</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">17 others…</div>
+                  <div class="pattern-row__meta">expand to view</div>
+                </div>
+                <span class="pattern-row__chevron">›</span>
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--secondary"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: -2px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+            <button class="btn btn--primary">Build 10 artboards</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          핵심 화면. 3개 통계 + 패턴 리스트. <strong>"Select to group →"</strong>로 selection mode 진입.
+          기본 보기는 결정할 게 없음 — 바로 Build 가능.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 2b — Selection mode
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 2b · Selection mode</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+              <div class="panel__title-eyebrow">Selecting patterns to group</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="hint-bar">
+              <span class="hint-bar__icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+              <span>Tap 2 or more patterns to group as variants. Drag patterns in/out of groups to refine.</span>
+            </div>
+
+            <div class="action-bar">
+              <span class="section-label" style="margin: 0;">Patterns</span>
+              <button class="btn btn--secondary" style="padding: 5px 10px; font-size: 11px;">Done</button>
+            </div>
+
+            <div class="pattern-list">
+              <div class="pattern-row" style="background: var(--primary-subtle);">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check pattern-row__check--checked">✓</div>
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn primary</div>
+                  <div class="pattern-row__meta">button.btn.btn-primary</div>
+                </div>
+                <div class="pattern-row__count">12</div>
+              </div>
+
+              <div class="pattern-row" style="background: var(--primary-subtle);">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check pattern-row__check--checked">✓</div>
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn secondary</div>
+                  <div class="pattern-row__meta">button.btn.btn-secondary</div>
+                </div>
+                <div class="pattern-row__count">8</div>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn danger</div>
+                  <div class="pattern-row__meta">button.btn.btn-danger</div>
+                </div>
+                <div class="pattern-row__count">2</div>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">card</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">profile card</div>
+                  <div class="pattern-row__meta">div.profile-card</div>
+                </div>
+                <div class="pattern-row__count">6</div>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">tab</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">tab item</div>
+                  <div class="pattern-row__meta">li.tab</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">in</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">labeled input</div>
+                  <div class="pattern-row__meta">div.form-row</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+              </div>
+
+              <div class="pattern-row">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">md</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">modal frame</div>
+                  <div class="pattern-row__meta">div.modal</div>
+                </div>
+                <div class="pattern-row__count">4</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer panel__footer--split">
+            <span class="footer-counter">2 selected</span>
+            <button class="btn btn--primary">Merge selected (2)</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          Selection mode. <strong>체크박스 + hover 시 좌측에 grip handle ≡ 표시.</strong>
+          상단 hint bar로 동작 안내. footer에 선택 카운트 + merge 버튼.
+          <strong>"Select to group" → "Done"으로 변경</strong> (라벨이 동작 상태 반영).
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 2c — After grouping
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 2c · After grouping</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">cpp-setting-tab-mockup.html</h2>
+              <div class="panel__title-eyebrow">1 group · 7 standalone patterns</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="hint-bar">
+              <span class="hint-bar__icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+              <span>Drag patterns in or out of groups. Tap "Done" when finished.</span>
+            </div>
+
+            <div class="action-bar">
+              <span class="section-label" style="margin: 0;">Patterns</span>
+              <button class="btn btn--secondary" style="padding: 5px 10px; font-size: 11px;">Done</button>
+            </div>
+
+            <div class="pattern-list">
+              <div class="pattern-group pattern-group--selected">
+                <div class="pattern-group__header">
+                  <span class="pattern-group__name">
+                    Button
+                    <span class="pattern-group__edit">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="10" height="10">
+                        <path d="M11.5 2L14 4.5 5 13.5 1.5 14.5 2.5 11z"/>
+                      </svg>
+                    </span>
+                  </span>
+                  <span class="pattern-group__count">2 variants · 20 instances</span>
+                  <span class="pattern-group__unlink">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18.84 12.25L20.56 10.54H20.54C21.4606 9.58603 21.9651 8.30572 21.9426 6.98017C21.9201 5.65461 21.3725 4.39216 20.42 3.46999C19.4869 2.57019 18.2412 2.06738 16.945 2.06738C15.6488 2.06738 14.4031 2.57019 13.47 3.46999L11.75 5.17999M5.16994 11.75L3.45994 13.46C2.53931 14.414 2.03486 15.6943 2.05736 17.0198C2.07986 18.3454 2.62746 19.6078 3.57994 20.53C4.51299 21.4298 5.7587 21.9326 7.05494 21.9326C8.35118 21.9326 9.59689 21.4298 10.5299 20.53L12.2399 18.82M8 2V5M2 8H5M16 19V22M19 16H22"/>
+                    </svg>
+                  </span>
+                </div>
+                <div class="pattern-group__body">
+                  <div class="pattern-row">
+                    <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                    <div class="pattern-row__swatch">btn</div>
+                    <div class="pattern-row__main">
+                      <div class="pattern-row__name">btn primary</div>
+                      <div class="pattern-row__meta">Variant=primary</div>
+                    </div>
+                    <div class="pattern-row__count">12</div>
+                  </div>
+                  <div class="pattern-row">
+                    <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                    <div class="pattern-row__swatch">btn</div>
+                    <div class="pattern-row__main">
+                      <div class="pattern-row__name">btn secondary</div>
+                      <div class="pattern-row__meta">Variant=secondary</div>
+                    </div>
+                    <div class="pattern-row__count">8</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pattern-row pattern-row--disabled">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">btn</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">btn danger</div>
+                  <div class="pattern-row__meta">button.btn.btn-danger</div>
+                </div>
+                <div class="pattern-row__count">2</div>
+              </div>
+
+              <div class="pattern-row pattern-row--disabled">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">card</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">profile card</div>
+                  <div class="pattern-row__meta">div.profile-card</div>
+                </div>
+                <div class="pattern-row__count">6</div>
+              </div>
+
+              <div class="pattern-row pattern-row--disabled">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">tab</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">tab item</div>
+                  <div class="pattern-row__meta">li.tab</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+              </div>
+
+              <div class="pattern-row pattern-row--disabled">
+                <div class="pattern-row__drag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12H18M6 6H18M6 18H18"/></svg></div>
+                <div class="pattern-row__check"></div>
+                <div class="pattern-row__swatch">in</div>
+                <div class="pattern-row__main">
+                  <div class="pattern-row__name">labeled input</div>
+                  <div class="pattern-row__meta">div.form-row</div>
+                </div>
+                <div class="pattern-row__count">5</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer panel__footer--split">
+            <span class="footer-counter">0 selected</span>
+            <button class="btn btn--primary" disabled>Merge selected (0)</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          그룹 형성된 후 + 그룹 헤더 선택된 상태. <strong>그룹 이름 자동 생성 ("Button") + edit pencil로 수정 가능.</strong>
+          그룹 선택 시 우측에 <strong>unlink 아이콘</strong> 표시 (hover 시 "Ungroup" tooltip). 클릭 → 그룹 해체.
+          그룹 안 항목 체크 시 그룹 밖 항목 disabled. 추가/제거는 drag로만.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 3 — Pattern detail (800px wide variant)
+           ========================================================= -->
+      <div class="strip__cell strip__cell--wide">
+        <div class="strip__cell-label">Screen 3 · Pattern detail (panel resizes to 800px)</div>
+        <div class="panel panel--wide">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">Pattern: btn primary</h2>
+              <div class="panel__title-eyebrow">12 instances across 8 artboards</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="breadcrumb"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: -2px;"><polyline points="15 18 9 12 15 6"/></svg>Back to all patterns</div>
+
+            <div class="detail-card">
+              <div class="detail-card__head">
+                <div class="detail-card__swatch">btn</div>
+                <div>
+                  <h3 class="detail-card__name">btn primary</h3>
+                  <div class="detail-card__meta">button.btn.btn-primary · 12 instances</div>
+                </div>
+              </div>
+
+              <div class="detail-card__hint">
+                <strong>How this works:</strong> After build, find this component on the
+                <strong>Components (generated)</strong> page. Open its master and design it
+                (or replace contents with your DS Button/Primary instance). All 12 instances
+                update automatically.
+              </div>
+            </div>
+
+            <p class="section-label" style="margin-top: 4px;">Instances</p>
+            <div class="instance-list">
+
+              <div class="instance-row">
+                <div class="instance-row__summary">
+                  <span class="instance-row__loc">page 1</span>
+                  <span class="instance-row__preview">"Save changes"</span>
+                  <span class="instance-row__view-icon">›</span>
+                </div>
+              </div>
+
+              <div class="instance-row">
+                <div class="instance-row__summary" style="background: var(--bg-elevated);">
+                  <span class="instance-row__loc">page 1</span>
+                  <span class="instance-row__preview">"Add Profile"</span>
+                  <span class="instance-row__view-icon instance-row__view-icon--open">›</span>
+                </div>
+                <div class="instance-row__detail">
+                  <p class="instance-detail-label">Preview · full page with element highlighted</p>
+                  <div class="iframe-mock">
+                    <div class="iframe-mock__viewport">
+                      <div class="iframe-mock__page">
+                        <!-- Page header -->
+                        <div class="iframe-mock__page-header">
+                          <span class="iframe-mock__page-header-logo">HiNAS Control</span>
+                          <span>›</span>
+                          <span>Settings</span>
+                          <span>›</span>
+                          <span>CPP</span>
+                        </div>
+                        <!-- Tabs -->
+                        <div class="iframe-mock__page-tabs">
+                          <div class="iframe-mock__page-tab">Overview</div>
+                          <div class="iframe-mock__page-tab iframe-mock__page-tab--active">CPP</div>
+                          <div class="iframe-mock__page-tab">Sensors</div>
+                          <div class="iframe-mock__page-tab">Alerts</div>
+                        </div>
+                        <!-- Body -->
+                        <div class="iframe-mock__page-body">
+                          <div class="iframe-mock__page-main">
+                            <div class="iframe-mock__section-title">Profile Configuration</div>
+
+                            <div class="iframe-mock__profile-card">
+                              <div class="iframe-mock__profile-avatar"></div>
+                              <div class="iframe-mock__profile-info">
+                                <div class="iframe-mock__profile-name">Captain Profile A</div>
+                                <div class="iframe-mock__profile-detail">Active · Last edited 2 days ago</div>
+                              </div>
+                            </div>
+
+                            <div class="iframe-mock__profile-card">
+                              <div class="iframe-mock__profile-avatar"></div>
+                              <div class="iframe-mock__profile-info">
+                                <div class="iframe-mock__profile-name">Captain Profile B</div>
+                                <div class="iframe-mock__profile-detail">Inactive</div>
+                              </div>
+                            </div>
+
+                            <div class="iframe-mock__form-row">
+                              <span class="iframe-mock__form-label">Name</span>
+                              <div class="iframe-mock__form-input">Captain Profile A</div>
+                            </div>
+                            <div class="iframe-mock__form-row">
+                              <span class="iframe-mock__form-label">Mode</span>
+                              <div class="iframe-mock__form-input">Manual override</div>
+                            </div>
+                            <div class="iframe-mock__form-row">
+                              <span class="iframe-mock__form-label">Threshold</span>
+                              <div class="iframe-mock__form-input">85%</div>
+                            </div>
+
+                            <div class="iframe-mock__button-row">
+                              <button class="iframe-mock__page-btn iframe-mock__page-btn--secondary">Cancel</button>
+                              <button class="iframe-mock__page-btn iframe-mock__page-btn--primary iframe-mock__highlight">Add Profile</button>
+                              <button class="iframe-mock__page-btn iframe-mock__page-btn--primary">Save</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="iframe-mock__toolbar">
+                      <span class="iframe-mock__toolbar-btn">−</span>
+                      <span class="iframe-mock__toolbar-zoom">90%</span>
+                      <span class="iframe-mock__toolbar-btn">+</span>
+                    </div>
+                  </div>
+                  <p class="instance-detail-label">Location</p>
+                  <div class="instance-detail-meta">
+                    <span><strong>Artboard:</strong> Setting · CPP · populated</span>
+                  </div>
+                  <div class="instance-detail-meta" style="margin-top: 4px;">
+                    <span><strong>Selector:</strong> <code style="font-family: var(--font-mono); font-size: 10px;">.profile-section &gt; button:nth-child(3)</code></span>
+                  </div>
+                  <div class="show-code">
+                    <span class="show-code__label">
+                      <span class="show-code__chevron">▸</span>
+                      Show code
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="instance-row">
+                <div class="instance-row__summary">
+                  <span class="instance-row__loc">page 3</span>
+                  <span class="instance-row__preview">"Apply settings"</span>
+                  <span class="instance-row__view-icon">›</span>
+                </div>
+              </div>
+
+              <div class="instance-row">
+                <div class="instance-row__summary">
+                  <span class="instance-row__loc">page 5</span>
+                  <span class="instance-row__preview">"Confirm"</span>
+                  <span class="instance-row__view-icon">›</span>
+                </div>
+              </div>
+
+              <div class="instance-row">
+                <div class="instance-row__summary">
+                  <span class="instance-row__loc">page 7</span>
+                  <span class="instance-row__preview">"Submit"</span>
+                  <span class="instance-row__view-icon">›</span>
+                </div>
+              </div>
+
+              <div class="instance-row">
+                <div class="instance-row__summary">
+                  <span class="instance-row__loc">+7 more…</span>
+                  <span class="instance-row__preview"></span>
+                  <span class="instance-row__view-icon">›</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--secondary"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 2px; vertical-align: -2px;"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+            <button class="btn btn--primary">Confirm</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          <strong>이 화면 진입 시 plugin이 800px로 자동 resize.</strong>
+          row 클릭 시 인라인 expand — <strong>전체 HTML 페이지가 iframe에 srcdoc으로 로드</strong>되고,
+          해당 instance에 빨간 dashed outline + "selected instance" 라벨이 강조됨.
+          페이지가 panel보다 넓을 경우 <strong>가로 스크롤 + zoom 컨트롤</strong>로 탐색.
+          "Show code" 토글 (default OFF) — preview가 안 맞으면 폴백.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 4 — Build progress
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 4 · Build progress</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">Building artboards…</h2>
+              <div class="panel__title-eyebrow">6 of 10 complete</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <p class="section-label">Progress</p>
+            <div class="stepper">
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--done">✓</div>
+                <span class="stepper__label">Parse HTML</span>
+                <span class="stepper__detail">10 pages</span>
+              </div>
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--done">✓</div>
+                <span class="stepper__label">Detect patterns</span>
+                <span class="stepper__detail">10 patterns</span>
+              </div>
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--done">✓</div>
+                <span class="stepper__label">Create variants</span>
+                <span class="stepper__detail">1 set, 9 single</span>
+              </div>
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--active">4</div>
+                <span class="stepper__label">Build artboards</span>
+                <span class="stepper__detail">6 / 10</span>
+              </div>
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--pending">5</div>
+                <span class="stepper__label stepper__label--pending">Place instances</span>
+                <span class="stepper__detail"></span>
+              </div>
+              <div class="stepper__row">
+                <div class="stepper__indicator stepper__indicator--pending">6</div>
+                <span class="stepper__label stepper__label--pending">Place unique elements</span>
+                <span class="stepper__detail"></span>
+              </div>
+            </div>
+
+            <div class="progress-bar">
+              <div class="progress-bar__fill"></div>
+            </div>
+
+            <div style="margin-top: 24px; padding: 12px 14px; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Current</p>
+              <p style="font-size: 12px; color: var(--text-primary); margin: 0; font-family: var(--font-mono);">
+                page 6 of 10 — placing 3 btn primary instances…
+              </p>
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--ghost">Cancel</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          빌드 진행. 6단계 스테퍼. "Create variants" 단계 — selection mode에서 묶은 그룹은 variant set으로,
+          나머지는 single component로 생성.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 5 — Done
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 5 · Done</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">Done</h2>
+              <div class="panel__title-eyebrow">10 artboards · 10 components · 47 instances · 18 unique elements</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="done">
+              <div class="done__check">✓</div>
+              <h3 class="done__title">Built 10 artboards</h3>
+              <p class="done__subtitle">Components are ready for design work.</p>
+            </div>
+
+            <div class="next-steps">
+              <p class="next-steps__title">Next steps</p>
+
+              <div class="next-step">
+                <div class="next-step__num">1</div>
+                <p class="next-step__text">
+                  Open the <strong>Components (generated)</strong> page in your file.
+                </p>
+              </div>
+
+              <div class="next-step">
+                <div class="next-step__num">2</div>
+                <p class="next-step__text">
+                  Pick a master (e.g., <strong>Button</strong>) and design it — paste your DS
+                  Button instance inside, or design from scratch.
+                </p>
+              </div>
+
+              <div class="next-step">
+                <div class="next-step__num">3</div>
+                <p class="next-step__text">
+                  All instances of that master across the artboards update automatically.
+                  Repeat for each master.
+                </p>
+              </div>
+
+              <div class="next-step">
+                <div class="next-step__num">4</div>
+                <p class="next-step__text">
+                  <strong>18 unique elements</strong> remain as placeholders — design them manually if needed.
+                </p>
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--ghost">Run again</button>
+            <button class="btn btn--primary">Open Components page</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          완료 화면. <strong>Next steps의 동그라미 번호와 텍스트 첫 줄 시각 중심 정렬.</strong>
+          "Open Components page"가 footer 주 CTA.
+        </p>
+      </div>
+
+      <!-- =========================================================
+           Screen 6 — Settings
+           ========================================================= -->
+      <div class="strip__cell">
+        <div class="strip__cell-label">Screen 6 · Settings</div>
+        <div class="panel">
+          <div class="panel__topbar">
+            <div>
+              <h2 class="panel__title">Settings</h2>
+              <div class="panel__title-eyebrow">Per-file preferences</div>
+            </div>
+            <div class="panel__close">×</div>
+          </div>
+          <div class="panel__body">
+
+            <div class="settings-section">
+              <p class="settings-section__title">Pages</p>
+              <div class="config-row" data-dropdown="dd-s6-target">
+                <span class="config-row__label">Target page</span>
+                <span class="config-row__value"><span class="dropdown-value">Drafts</span> <span class="config-row__chevron">›</span></span>
+    <div class="dropdown" id="dd-s6-target">
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">Drafts</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Components (generated)</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 1</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 2</span>
+      </div>
+      <div class="dropdown__divider"></div>
+      <div class="dropdown__item dropdown__item--create">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        <span class="dropdown__item-text">Create new page…</span>
+      </div>
+    </div>
+              </div>
+              <div class="config-row" data-dropdown="dd-s6-comp">
+                <span class="config-row__label">Components page</span>
+                <span class="config-row__value"><span class="dropdown-value">Components (generated)</span> <span class="config-row__chevron">›</span></span>
+    <div class="dropdown" id="dd-s6-comp">
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Drafts</span>
+      </div>
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">Components (generated)</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 1</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">Page 2</span>
+      </div>
+      <div class="dropdown__divider"></div>
+      <div class="dropdown__item dropdown__item--create">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        <span class="dropdown__item-text">Create new page…</span>
+      </div>
+    </div>
+              </div>
+            </div>
+
+            <div class="settings-section" style="margin-top: 24px;">
+              <p class="settings-section__title">Pattern detection</p>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Minimum instances</p>
+                  <p class="setting-row__hint">Elements need to repeat at least N times to become a pattern. Below this threshold, they stay as unique element placeholders.</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="dropdown-trigger" data-dropdown="dd-s6-min">
+                    <span class="dropdown-value">2</span> <span class="dropdown-trigger__chevron">▾</span>
+                  </div>
+    <div class="dropdown" id="dd-s6-min">
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">2</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">3</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">4</span>
+      </div>
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">5+</span>
+      </div>
+    </div>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Match by class name</p>
+                  <p class="setting-row__hint">Group elements with the same CSS class.</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="toggle"><div class="toggle__dot"></div></div>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Match by structure</p>
+                  <p class="setting-row__hint">Group elements with identical DOM trees, even without matching classes.</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="toggle"><div class="toggle__dot"></div></div>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Split on class modifiers</p>
+                  <p class="setting-row__hint">Treat <code>btn-primary</code> and <code>btn-danger</code> as separate patterns.</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="toggle"><div class="toggle__dot"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <p class="settings-section__title">Build behavior</p>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Detail level</p>
+                  <p class="setting-row__hint">How to label unique element placeholders. <code>simple</code> = element type only (e.g. <code>"input"</code>), <code>detail</code> = type + hint (e.g. <code>"input · email"</code>).</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="dropdown-trigger" data-dropdown="dd-s6-detail">
+                    <span class="dropdown-value">detail</span> <span class="dropdown-trigger__chevron">▾</span>
+                  </div>
+    <div class="dropdown" id="dd-s6-detail">
+      <div class="dropdown__item">
+        <span class="dropdown__check"></span>
+        <span class="dropdown__item-text">simple</span>
+        <span class="dropdown__item-hint">"input"</span>
+      </div>
+      <div class="dropdown__item dropdown__item--selected">
+        <span class="dropdown__check"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="dropdown__item-text">detail</span>
+        <span class="dropdown__item-hint">"input · email"</span>
+      </div>
+    </div>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-row__main">
+                  <p class="setting-row__name">Add screenshot background</p>
+                  <p class="setting-row__hint">Each artboard gets the HTML page screenshot as a reference layer.</p>
+                </div>
+                <div class="setting-row__control">
+                  <div class="toggle toggle--off"><div class="toggle__dot"></div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="panel__footer">
+            <button class="btn btn--secondary">Cancel</button>
+            <button class="btn btn--primary">Save</button>
+          </div>
+        </div>
+        <p class="strip__cell-note">
+          설정 화면. <strong>Pages 섹션은 Screen 1과 동일한 config row UI.</strong>
+          <strong>Minimum instances</strong>와 새로 추가된 <strong>Detail level</strong>은 dropdown trigger 스타일 (chevron 표시).
+          Add screenshot background 유지.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <script>
+    // Dropdown interactivity (matches original mockup behavior)
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // Close all open dropdowns
+      function closeAllDropdowns() {
+        document.querySelectorAll('.dropdown.is-open').forEach(d => {
+          d.classList.remove('is-open');
+          // Reset any create form back to create item
+          const form = d.querySelector('.dropdown__create-form');
+          if (form && form.dataset.originalHtml) {
+            form.outerHTML = form.dataset.originalHtml;
+          }
+        });
+      }
+
+      // Toggle dropdown on trigger click
+      document.querySelectorAll('[data-dropdown]').forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdownId = trigger.dataset.dropdown;
+          const dropdown = document.getElementById(dropdownId);
+          const wasOpen = dropdown.classList.contains('is-open');
+          closeAllDropdowns();
+          if (!wasOpen) dropdown.classList.add('is-open');
+        });
+      });
+
+      // Select option on click
+      document.querySelectorAll('.dropdown__item:not(.dropdown__item--create)').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdown = item.closest('.dropdown');
+          const trigger = document.querySelector(`[data-dropdown="${dropdown.id}"]`);
+          const valueEl = trigger.querySelector('.dropdown-value');
+          const textEl = item.querySelector('.dropdown__item-text');
+          if (valueEl && textEl) valueEl.textContent = textEl.textContent;
+
+          // Update selected state
+          dropdown.querySelectorAll('.dropdown__item').forEach(i => {
+            i.classList.remove('dropdown__item--selected');
+            const check = i.querySelector('.dropdown__check');
+            if (check && !i.classList.contains('dropdown__item--create')) {
+              check.innerHTML = '';
+            }
+          });
+          item.classList.add('dropdown__item--selected');
+          const check = item.querySelector('.dropdown__check');
+          if (check) {
+            check.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          }
+
+          dropdown.classList.remove('is-open');
+        });
+      });
+
+      // "+ Create new page" → morph to input
+      document.querySelectorAll('.dropdown__item--create').forEach(createItem => {
+        createItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const dropdown = createItem.closest('.dropdown');
+          const trigger = document.querySelector(`[data-dropdown="${dropdown.id}"]`);
+
+          // Save original HTML so we can restore on Esc
+          const originalHtml = createItem.outerHTML;
+
+          const form = document.createElement('div');
+          form.className = 'dropdown__create-form';
+          form.dataset.originalHtml = originalHtml;
+          form.innerHTML = `
+            <input type="text" class="dropdown__input" value="figma-migrate output">
+            <button class="btn btn--primary">Create</button>
+          `;
+          createItem.replaceWith(form);
+
+          const input = form.querySelector('input');
+          input.focus();
+          input.select();
+
+          const commit = () => {
+            const name = input.value.trim() || 'New page';
+            // Add new item before the divider
+            const newItem = document.createElement('div');
+            newItem.className = 'dropdown__item';
+            newItem.innerHTML = `
+              <span class="dropdown__check"></span>
+              <span class="dropdown__item-text">${name}</span>
+            `;
+            const divider = dropdown.querySelector('.dropdown__divider');
+            if (divider) divider.before(newItem);
+
+            // Trigger selection of new item
+            newItem.click();
+
+            // Re-bind click handler for it
+            newItem.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const valueEl = trigger.querySelector('.dropdown-value');
+              valueEl.textContent = name;
+              dropdown.querySelectorAll('.dropdown__item').forEach(i => {
+                i.classList.remove('dropdown__item--selected');
+                const c = i.querySelector('.dropdown__check');
+                if (c && !i.classList.contains('dropdown__item--create')) c.innerHTML = '';
+              });
+              newItem.classList.add('dropdown__item--selected');
+              newItem.querySelector('.dropdown__check').innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              dropdown.classList.remove('is-open');
+            });
+
+            // Restore the create item for future use
+            form.outerHTML = originalHtml;
+            // Re-bind click handler for restored create item
+            const restored = dropdown.querySelector('.dropdown__item--create');
+            if (restored) {
+              const handler = restored.cloneNode(true);
+              restored.replaceWith(handler);
+              handler.addEventListener('click', arguments.callee);
+            }
+          };
+
+          const cancel = () => {
+            form.outerHTML = originalHtml;
+            const restored = dropdown.querySelector('.dropdown__item--create');
+            if (restored) {
+              restored.addEventListener('click', (ev) => {
+                createItem.dispatchEvent(new MouseEvent('click'));
+              });
+            }
+          };
+
+          input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+          });
+          form.querySelector('.btn').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            commit();
+          });
+        });
+      });
+
+      // Click outside to close
+      document.addEventListener('click', () => closeAllDropdowns());
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Figma__get_screenshot",
+      "mcp__claude_ai_Figma__get_metadata",
+      "mcp__claude_ai_Figma__get_design_context",
+      "mcp__claude_ai_Figma__get_libraries",
+      "mcp__claude_ai_Figma__search_design_system",
+      "mcp__claude_ai_Figma__whoami",
+      "mcp__claude_ai_Atlassian_Rovo__searchJiraIssuesUsingJql",
+      "Skill(superpowers:using-superpowers)",
+      "Skill(superpowers:using-superpowers:*)",
+      "Bash(awk 'NR>=1381 && NR<=2340 && /strip__cell-note|panel__title|<h2|strip__cell\">|class=\"screen-tag|<!-- Screen [0-9]+/' /Users/younginsa/Documents/Claude/Projects/HiNAS/plugin/ui.html)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(node plugin/test/smoke-parser.js)"
+    ]
+  }
+}

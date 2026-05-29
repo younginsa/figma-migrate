@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Figma__use_figma",
+      "Bash(xargs ls *)",
+      "Bash(python3 *)",
+      "Bash(chmod +x /Users/younginsa/Documents/Claude/Projects/HiNAS/.claude/scripts/*.sh /Users/younginsa/Documents/Claude/Projects/HiNAS/.claude/scripts/*.py)",
+      "Bash($CLAUDE_PROJECT_DIR/.claude/scripts/rule.sh *)",
+      "Bash($CLAUDE_PROJECT_DIR/.claude/scripts/migrate-mode.sh *)",
+      "Bash($CLAUDE_PROJECT_DIR/.claude/scripts/open-checklist-window.sh)",
+      "Bash(bash /Users/younginsa/Documents/Claude/Projects/HiNAS/.claude/scripts/open-checklist-window.sh)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(bash .claude/scripts/migrate-mode.sh on)",
+      "Bash(bash .claude/scripts/rule.sh \"DS sync\" running)",
+      "Bash(bash *)",
+      "Skill(update-config)"
+    ]
+  }
+}
