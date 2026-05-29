@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>figma-migrate v0.2</title>
+  <style>
+/* {{INLINE_CSS}} */
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="panel__topbar">
+      <div>
+        <h1 class="panel__title" id="topbar-title">figma-migrate</h1>
+        <div class="panel__title-eyebrow" id="topbar-eyebrow">Pattern-group · v0.2</div>
+      </div>
+    </div>
+    <div class="panel__body" id="body"></div>
+    <div id="banner-mount"></div>
+    <div class="panel__footer" id="footer"></div>
+  </div>
+  <input type="file" id="file-input" accept=".html,text/html" style="display:none;">
+  <div class="preview-modal" id="preview-modal">
+    <button class="preview-modal__close" id="preview-modal-close" aria-label="Close preview">×</button>
+    <div class="preview-modal__wrap" id="preview-modal-wrap">
+      <iframe class="preview-modal__frame" id="preview-modal-frame" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+
+  <script>
+/* {{INLINE_SORTABLE}} */
+  </script>
+  <script>
+/* {{INLINE_HTML2CANVAS}} */
+  </script>
+  <script>
+/* {{INLINE_PARSER}} */
+  </script>
+  <script>
+/* {{INLINE_UI}} */
+  </script>
+</body>
+</html>
